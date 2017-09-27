@@ -104,7 +104,6 @@ namespace TestRoonApi
         async Task OnPaired (string coreId)
         {
             var zones = await _apiTransport.SubscribeZones(0, onChangedZones);
-
         }
         Task OnUnPaired (string coreId)
         {
@@ -113,6 +112,9 @@ namespace TestRoonApi
         private async void Test_Load(object sender, EventArgs e)
         {
             await DiscoverCore();
+
+            if (_core == null)
+                return;
 
             await _api.Connect(_core.CoreIPAddress, _core.HttpPort);
             RoonApi.RoonReply info = await _api.GetRegistryInfo();
