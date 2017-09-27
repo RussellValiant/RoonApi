@@ -147,6 +147,7 @@ namespace TestRoonApi
                 }
             }
         }
+
         Task onChangedZones (RoonApiTransport.RoonZonesChanged zones)
         {
             if (this.InvokeRequired)
