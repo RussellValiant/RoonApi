@@ -104,7 +104,7 @@ namespace RoonApiLib
         public const string ActionAddNext            = "Add Next";
         public const string ActionAddtoQueue         = "Add to Queue";
 
-        public class RoonBrowseOptions
+        public class BrowseOptions
         {
             [JsonProperty("hierarchy")]
             public string Hierarchy { get; set; }
@@ -119,7 +119,7 @@ namespace RoonApiLib
             [JsonProperty("input")]
             public string Input { get; set; }
         }
-        public class RoonBrowseList
+        public class BrowseList
         {
             [JsonProperty("level")]
             public int Level { get; set; }
@@ -134,14 +134,14 @@ namespace RoonApiLib
             [JsonProperty("display_offset")]
             public int? DisplayOffset { get; set; }
         }
-        public class RoonBrowseResult
+        public class BrowseResult
         {
             [JsonProperty("action")]
             public string Action { get; set; }
             [JsonProperty("list")]
-            public RoonBrowseList List { get; set; }
+            public BrowseList List { get; set; }
         }
-        public class RoonLoadOptions
+        public class LoadOptions
         {
             [JsonProperty("hierarchy")]
             public string Hierarchy { get; set; }
@@ -150,7 +150,7 @@ namespace RoonApiLib
             [JsonProperty("set_display_offset")]
             public int SetDisplayOffset { get; set; }
         }
-        public class RoonLoadItem
+        public class LoadItem
         {
             [JsonProperty("title")]
             public string Title { get; set; }
@@ -163,16 +163,16 @@ namespace RoonApiLib
             [JsonProperty("hint")]
             public string Hint { get; set; }
         }
-        public class RoonLoadResult
+        public class LoadResult
         {
             [JsonProperty("items")]
-            public RoonLoadItem[] Items { get; set; }
+            public LoadItem[] Items { get; set; }
             [JsonProperty("offset")]
             public int Offset { get; set; }
             [JsonProperty("list")]
-            public RoonBrowseList List { get; set; }
+            public BrowseList List { get; set; }
 
-            public RoonLoadItem FindItem (string title)
+            public LoadItem FindItem (string title)
             {
                 return Items.FirstOrDefault((item) => item.Title == title);
             }
@@ -183,24 +183,24 @@ namespace RoonApiLib
         {
             _api = api;
         }
-        public async Task<RoonBrowseResult> Browse(RoonBrowseOptions options)
+        public async Task<BrowseResult> Browse(BrowseOptions options)
         {
-            var result = await _api.SendReceive<RoonBrowseResult, RoonBrowseOptions>(RoonApi.ServiceBrowse + "/browse", options);
+            var result = await _api.SendReceive<BrowseResult, BrowseOptions>(RoonApi.ServiceBrowse + "/browse", options);
             return result;
         }
-        public async Task<RoonLoadResult> Load(RoonLoadOptions options)
+        public async Task<LoadResult> Load(LoadOptions options)
         {
-            var result = await _api.SendReceive<RoonLoadResult, RoonLoadOptions>(RoonApi.ServiceBrowse + "/load", options);
+            var result = await _api.SendReceive<LoadResult, LoadOptions>(RoonApi.ServiceBrowse + "/load", options);
             return result;
         }
-        public async Task<RoonLoadResult> BrowseAndLoad(RoonBrowseOptions options)
+        public async Task<LoadResult> BrowseAndLoad(BrowseOptions options)
         {
-            RoonLoadResult result = null;
+            LoadResult result = null;
             var browseResult = await Browse(options);
-            List<RoonLoadItem> items = new List<RoonLoadItem>();
+            List<LoadItem> items = new List<LoadItem>();
             for (int i = 0; i < browseResult.List.Count; i += 100)
             {
-                result = await Load(new RoonLoadOptions { Hierarchy = options.Hierarchy, Offset = i, SetDisplayOffset = i });
+                result = await Load(new LoadOptions { Hierarchy = options.Hierarchy, Offset = i, SetDisplayOffset = i });
                 items.AddRange(result.Items);
             }
             result.Items = items.ToArray();

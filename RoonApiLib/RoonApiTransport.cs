@@ -12,13 +12,13 @@ namespace RoonApiLib
     {
         public enum EState
         {
-            stopped = 0,
-            playing, paused, loading
+            unknown = 0,
+            stopped, playing, paused, loading
         }
         public enum ELoop
         {
-            disabled = 0,
-            loop, loop_one, next
+            unknown = 0,
+            disabled, loop, loop_one, next
         }
         public enum EControl
         {
@@ -40,9 +40,13 @@ namespace RoonApiLib
             absolute = 0,
             relative
         }
-        public class RoonVolume
+        public enum ESourceControlStatus {
+            indeterminate = 0,
+            selected, deselected, standby
+        }
+        public class Volume
         {
-            internal void Copy (RoonVolume src)
+            internal void Copy (Volume src)
             {
                 Type = src.Type;
                 Min = src.Min;
@@ -64,9 +68,9 @@ namespace RoonApiLib
             [JsonProperty("is_muted")]
             public bool IsMuted { get; set; }
         }
-        public class RoonSettings
+        public class Settings
         {
-            internal void Copy(RoonSettings src)
+            internal void Copy(Settings src)
             {
                 Loop = src.Loop;
                 Shuffle = src.Shuffle;
@@ -80,18 +84,18 @@ namespace RoonApiLib
             [JsonProperty("auto_radio")]
             public bool AutoRadio { get; set; }
         }
-        public class RoonLine1
+        public class LineOne
         {
-            internal void Copy(RoonLine1 src)
+            internal void Copy(LineOne src)
             {
                 Line1 = src.Line1;
             }
             [JsonProperty("line1")]
             public string Line1 { get; set; }
         }
-        public class RoonLine2 : RoonLine1
+        public class LineTwo : LineOne
         {
-            internal void Copy(RoonLine2 src)
+            internal void Copy(LineTwo src)
             {
                 base.Copy(src);
                 Line2 = src.Line2;
@@ -99,9 +103,9 @@ namespace RoonApiLib
             [JsonProperty("line2")]
             public string Line2 { get; set; }
         }
-        public class RoonLine3 : RoonLine2
+        public class LineThree : LineTwo
         {
-            internal void Copy(RoonLine3 src)
+            internal void Copy(LineThree src)
             {
                 base.Copy(src);
                 Line3 = src.Line3;
@@ -109,9 +113,9 @@ namespace RoonApiLib
             [JsonProperty("line3")]
             public string Line3 { get; set; }
         }
-        public class RoonNowPlaying
+        public class NowPlaying
         {
-            internal void Copy(RoonNowPlaying src)
+            internal void Copy(NowPlaying src)
             {
                 SeekPosition = src.SeekPosition;
                 Length = src.Length;
@@ -135,17 +139,33 @@ namespace RoonApiLib
             [JsonProperty("length")]
             public int Length { get; set; }
             [JsonProperty("one_line")]
-            public RoonLine1 OneLine { get; set; }
+            public LineOne OneLine { get; set; }
             [JsonProperty("two_line")]
-            public RoonLine2 TwoLine { get; set; }
+            public LineTwo TwoLine { get; set; }
             [JsonProperty("three_line")]
-            public RoonLine3 ThreeLine { get; set; }
+            public LineThree ThreeLine { get; set; }
             [JsonProperty("image_key")]
             public string ImageKey { get; set; }
         }
-        public class RoonOutput
+        public class SourceControl
         {
-            internal void Copy (RoonOutput src)
+            internal void Copy(SourceControl src)
+            {
+                DisplayName = src.DisplayName;
+                Status = src.Status;
+                SupportsStandby = src.SupportsStandby;
+            }
+            [JsonProperty("display_name")]
+            public string DisplayName { get; set; }
+            [JsonConverter(typeof(StringEnumConverter))]
+            [JsonProperty("status")]
+            public ESourceControlStatus Status { get; set; }
+            [JsonProperty("supports_standby")]
+            public string SupportsStandby { get; set; }
+        }
+        public class Output
+        {
+            internal void Copy (Output src)
             {
                 OutputId = src.OutputId;
                 ZoneId = src.ZoneId;
@@ -157,6 +177,13 @@ namespace RoonApiLib
                     Volume = src.Volume;
                 else
                     Volume.Copy(src.Volume);
+                if (SourceControls == null || src.SourceControls == null || SourceControls.Length != src.SourceControls.Length)
+                    SourceControls = src.SourceControls;
+                else
+                {
+                    for (int i = 0; i < SourceControls.Length; i++)
+                        SourceControls[i].Copy(src.SourceControls[i]);
+                }
             }
 
             [JsonProperty("output_id")]
@@ -171,11 +198,13 @@ namespace RoonApiLib
             [JsonProperty("state")]
             public EState State { get; set; }
             [JsonProperty("volume")]
-            public RoonVolume Volume { get; set; }
+            public Volume Volume { get; set; }
+            [JsonProperty("source_controls")]
+            public SourceControl[] SourceControls { get; set; }         // never seen
         }
-        public class RoonZone
+        public class Zone
         {
-            internal void Copy(RoonZone src)
+            internal void Copy(Zone src)
             {
                 ZoneId = src.ZoneId;
                 DisplayName = src.DisplayName;
@@ -207,7 +236,7 @@ namespace RoonApiLib
             [JsonProperty("display_name")]
             public string DisplayName { get; set; }
             [JsonProperty("outputs")]
-            public RoonOutput[] Outputs { get; set; }
+            public Output[] Outputs { get; set; }
 
             [JsonConverter(typeof(StringEnumConverter))]
             [JsonProperty("state")]
@@ -223,17 +252,17 @@ namespace RoonApiLib
             [JsonProperty("is_seek_allowed")]
             public bool IsSeekAllowed { get; set; }
             [JsonProperty("settings")]
-            public RoonSettings Settings { get; set; }
+            public Settings Settings { get; set; }
             [JsonProperty("now_playing")]
-            public RoonNowPlaying NowPlaying { get; set; }
+            public NowPlaying NowPlaying { get; set; }
 
-            public RoonOutput FindOutput(string displayName)
+            public Output FindOutput(string displayName)
             {
                 if (Outputs == null)
                     return null;
                 return Outputs.FirstOrDefault((o) => o.DisplayName == displayName);
             }
-            public RoonOutput FindOutputById(string id)
+            public Output FindOutputById(string id)
             {
                 if (Outputs == null)
                     return null;
@@ -241,17 +270,17 @@ namespace RoonApiLib
             }
 
         }
-        public class RoonZones
+        public class AllZones
         {
             [JsonProperty("zones")]
-            public RoonZone[] Zones { get; set; }
+            public Zone[] Zones { get; set; }
         }
-        public class RoonZonesChanged
+        public class ChangedZoones
         {
             [JsonProperty("zones_changed")]
-            public RoonZone[] ZonesChanged { get; set; }
+            public Zone[] ZonesChanged { get; set; }
             [JsonProperty("zones_added")]
-            public RoonZone[] ZonesAdded { get; set; }
+            public Zone[] ZonesAdded { get; set; }
             [JsonProperty("zones_removed")]
             public string[] ZonesRemoved { get; set; }
         }
@@ -273,7 +302,7 @@ namespace RoonApiLib
             [JsonProperty("seconds")]
             public int Seconds { get; set; }
         }
-        public class RoonChangeSettings : RoonSettings
+        public class RoonChangeSettings : Settings
         {
             [JsonProperty("zone_or_output_id")]
             public string ZoneOrOutputId { get; set; }
@@ -298,21 +327,21 @@ namespace RoonApiLib
         }
 
         RoonApi                         _api;
-        Func<RoonZonesChanged, Task>    _onChangedZones;
-        Dictionary<string, RoonZone>    _zones;
+        Func<ChangedZoones, Task>    _onChangedZones;
+        Dictionary<string, Zone>    _zones;
 
         public RoonApiTransport(RoonApi api)
         {
             _api = api;
         }
-        public Dictionary<string, RoonZone> Zones
+        public Dictionary<string, Zone> Zones
         {
             get => _zones;
         }
-        public async Task<bool> SubscribeZones(int subscriptionKey, Func<RoonZonesChanged, Task> onChangedZones)
+        public async Task<bool> SubscribeZones(int subscriptionKey, Func<ChangedZoones, Task> onChangedZones)
         {
             _onChangedZones = onChangedZones;
-            _zones = new Dictionary<string, RoonZone>();
+            _zones = new Dictionary<string, Zone>();
             int requestId = await _api.SendSubscription(RoonApi.ServiceTransport + "/subscribe_zones", subscriptionKey);
             if (requestId < 0)
                 return false;
@@ -373,19 +402,19 @@ namespace RoonApiLib
         }
         async Task<bool> OnReceived (string information, int requestId, string body)
         {
-            RoonZones zones;
-            RoonZonesChanged changedZones;
+            AllZones zones;
+            ChangedZoones changedZones;
             switch (information)
             {
                 case "Subscribed":
-                    zones = JsonConvert.DeserializeObject<RoonZones>(body);
-                    changedZones = new RoonZonesChanged { ZonesAdded = zones.Zones };
+                    zones = JsonConvert.DeserializeObject<AllZones>(body);
+                    changedZones = new ChangedZoones { ZonesAdded = zones.Zones };
                     if (_onChangedZones != null)
                         await _onChangedZones(changedZones);
                     OnReceivedZones(changedZones);
                     break;
                 case "Changed":
-                    changedZones = JsonConvert.DeserializeObject<RoonZonesChanged>(body);
+                    changedZones = JsonConvert.DeserializeObject<ChangedZoones>(body);
                     if (_onChangedZones != null)
                         await _onChangedZones(changedZones);
                     OnReceivedZones(changedZones);
@@ -393,19 +422,19 @@ namespace RoonApiLib
             }
             return true;
         }
-        public static RoonZone FindZone(RoonZone[] zones, string displayName)
+        public static Zone FindZone(Zone[] zones, string displayName)
         {
             if (zones == null)
                 return null;
             return zones.FirstOrDefault((zone) => zone.DisplayName == displayName);
         }
-        public static RoonZone FindZoneById(RoonZone[] zones, string id)
+        public static Zone FindZoneById(Zone[] zones, string id)
         {
             if (zones == null)
                 return null;
             return zones.FirstOrDefault((zone) => zone.ZoneId == id);
         }
-        void OnReceivedZones(RoonZonesChanged zones)
+        void OnReceivedZones(ChangedZoones zones)
         {
 
             lock (_zones)
@@ -430,7 +459,7 @@ namespace RoonApiLib
                 {
                     foreach (var zone in zones.ZonesChanged)
                     {
-                        RoonZone destZone;
+                        Zone destZone;
                         if (_zones.TryGetValue(zone.ZoneId, out destZone))
                             destZone.Copy(zone);
                         else

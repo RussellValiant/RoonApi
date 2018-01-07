@@ -21,6 +21,7 @@ namespace RoonApiLib
         public const string ServicePing         = "com.roonlabs.ping:1";
         public const string ServiceImage        = "com.roonlabs.image:1";
         public const string ServiceBrowse       = "com.roonlabs.browse:1";
+        public const string ServiceSettings     = "com.roonlabs.settings:1";
         public const string ControlVolume       = "com.roonlabs.volumecontrol:1";
         public const string ControlSource       = "com.roonlabs.sourcecontrol:1";
 
@@ -33,11 +34,21 @@ namespace RoonApiLib
         {
             public RoonRequest()
             {
+                OnReceived = null;
                 Event = new TaskCompletionSource<bool>();
                 StringResult = null;
                 DataResult = null;
                 StartTime = DateTime.UtcNow;
             }
+            public RoonRequest(OnRoonReceived onReceived)
+            {
+                OnReceived = onReceived;
+                Event = null;
+                StringResult = null;
+                DataResult = null;
+                StartTime = DateTime.UtcNow;
+            }
+            public OnRoonReceived OnReceived;
             public TaskCompletionSource<bool> Event;
             public string StringResult;
             public byte[] DataResult;
@@ -110,7 +121,7 @@ namespace RoonApiLib
             public RoonState RoonState { get; set; }
         }
 
-        internal delegate Task<bool> OnRoonReceived(string information, int requestId, string body);
+        public delegate Task<bool> OnRoonReceived(string information, int requestId, string body);
 
         ClientWebSocket                     _webSocket;
         CancellationTokenSource             _cancellationTokenSource;
@@ -123,12 +134,15 @@ namespace RoonApiLib
         string                              _coreId;
         bool                                _paired;
         AsyncLock                           _lock;
-        EventId                             _eventId;
+        Dictionary<string, object>          _configuration;
         Dictionary<string, OnRoonReceived>  _services;
         Dictionary<int, OnRoonReceived>     _subscriptions;
         public Func<string, Task>           _onPaired;
         public Func<string, Task>           _onUnPaired;
         RoonApiSubscriptionHandler          _subscriptionHandler;
+        int                                 _receiveCount;
+        RoonRegister                        _registration;
+        Action                              _onRegistration;
 
         class ReceivedContent
         {
@@ -147,15 +161,17 @@ namespace RoonApiLib
             _logger = logger == null ? NullLogger.Instance : logger;
             _requestId = 0;
             _configPath = configPath;
+            _coreId = null;
             _requests = new Dictionary<int, RoonRequest>();
             _jsonSettings = new JsonSerializerSettings();
             _jsonSettings.NullValueHandling = NullValueHandling.Ignore;
             _lock = new AsyncLock();
-            _savings = LoadRoonSettings();
-            _eventId = new EventId(0);
             _services = new Dictionary<string, OnRoonReceived>();
             _subscriptions = new Dictionary<int, OnRoonReceived>();
             _subscriptionHandler = new RoonApiSubscriptionHandler();
+            _configuration = new Dictionary<string, object>();
+
+            _savings = LoadRoonSettings();
         }
         public ILogger Logger { get => _logger; }
         public bool Paired
@@ -171,22 +187,59 @@ namespace RoonApiLib
         {
             _subscriptions.Add(requestId, handler);
         }
-        public async Task Connect(string ip, int port, bool startReceiveThread = true)
+        public void StartReceiver (string ip, int port, RoonRegister roonRegister, Action onRegistration = null)
         {
-            _webSocket = new ClientWebSocket();
-            _cancellationTokenSource = new CancellationTokenSource();
             string uri = $"ws://{ip}:{port}/api";
-            await _webSocket.ConnectAsync(new Uri(uri), _cancellationTokenSource.Token);
-            if (startReceiveThread)
-            {
-                Task.Run(async () => await Receive());
-            }
+            _registration = roonRegister;
+            _onRegistration = onRegistration;
+            Task.Run(async() => await ReceiveLoop(uri));
         }
-        public async Task<RoonApi.RoonReply> GetRegistryInfo ()
+        public async Task ReceiveLoop (string uri)
+        {
+            do
+            {
+                try
+                {
+                    _receiveCount = 0;
+                    _logger.LogInformation($"Start Receiving at '{uri}'");
+                    var webSocket = new ClientWebSocket();
+                    _cancellationTokenSource = new CancellationTokenSource();
+                    await webSocket.ConnectAsync(new Uri(uri), _cancellationTokenSource.Token);
+                    _webSocket = webSocket;     // For the senders
+                    await Receive();
+                    _webSocket = null;
+                    webSocket.Dispose();
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError($"ReceiveLoop error {ex.Message}, {_receiveCount} received");
+                }
+                if (_receiveCount > 10)
+                    await Task.Delay(1000);
+                else
+                    await Task.Delay(60000);
+                _requests.Clear();
+            } while (!_cancellationTokenSource.IsCancellationRequested);
+            _logger.LogError("ReceiveLoop exit");    
+        }
+
+        public async Task<RoonReply> GetRegistryInfo ()
         {
             var info = await SendReceive<RoonReply>(ServiceRegistry + "/info");
             _coreId = info.CoreId;
             return info;
+        }
+        public async Task<bool> GetRegistryInfo (Action<RoonReply> action)
+        {
+            RoonRequest request = new RoonRequest((info, id, body) =>
+            {
+                RoonReply reply = JsonConvert.DeserializeObject<RoonReply>(body);
+                action(reply);
+                return Task.FromResult(true);
+            });
+            int requestId = _requestId++;
+            _requests.Add(requestId, request);
+            return await Send(ServiceRegistry + "/info", requestId);
         }
         public async Task<bool> RegisterService(RoonRegister service)
         {
@@ -197,7 +250,7 @@ namespace RoonApiLib
             string bodyString = JsonConvert.SerializeObject(service, _jsonSettings);
             int requestId = _requestId++;
             AddSubscription(requestId, OnRegistrationReceived);
-            bool rc = await Send(ServiceRegistry + "/register", requestId, true, bodyString);
+            bool rc = await Send(ServiceRegistry + "/register", requestId, bodyString);
             return rc;
         }
         internal Task<bool> OnRegistrationReceived (string information, int requestId, string body)
@@ -208,6 +261,7 @@ namespace RoonApiLib
                     string token;
                     _savings.RoonState.Tokens.TryGetValue(_coreId, out token);
                     RoonRegisterReply registration = JsonConvert.DeserializeObject<RoonRegisterReply>(body);
+                    _logger.LogInformation($"Registration done {registration.DisplayName}");
                     if (registration.Token != null && (token == null || token != registration.Token))
                     {
                         if (token != null)
@@ -216,15 +270,17 @@ namespace RoonApiLib
                             _savings.RoonState.Tokens.Add(_coreId, registration.Token);
                         SaveRoonSettings(_savings);
                     }
+                    if (_onRegistration != null)
+                        _onRegistration();
                     break;
             }
             return Task.FromResult(true);
         }
         internal async Task<int> SendSubscription (string command, int subscriptionKey)
         {
-            string bodyString = JsonConvert.SerializeObject(new RoonApiSubscriptionHandler.RoonSubscription { SubscriptionKey = subscriptionKey  }, _jsonSettings);
+            string bodyString = JsonConvert.SerializeObject(new RoonApiSubscriptionHandler.Subscription { SubscriptionKey = subscriptionKey  }, _jsonSettings);
             int requestId = _requestId++;
-            bool rc = await Send(command, requestId, true, bodyString);
+            bool rc = await Send(command, requestId, bodyString);
             return rc ? requestId : -1;
 
         }
@@ -239,7 +295,7 @@ namespace RoonApiLib
             int requestId = _requestId++;
             _requests.Add(requestId, request);
 
-            bool rc = await Send(command, requestId, true, body, contentType);
+            bool rc = await Send(command, requestId, body, contentType);
 
             await request.Event.Task;
             RESULT obj = default(RESULT);
@@ -259,7 +315,7 @@ namespace RoonApiLib
             _requests.Remove(requestId);
             return obj;
         }
-        async Task<bool> Send(string command, int requestId, bool endOfMessage, string body = null, string contentType = "application/json")
+        async Task<bool> Send(string command, int requestId, string body = null, string contentType = "application/json")
         {
             using (var release = await _lock.LockAsync())
             {
@@ -273,13 +329,11 @@ namespace RoonApiLib
 
                     _logger.LogTrace(send);
 
-                    ArraySegment<byte> dataSend = new ArraySegment<byte>(Encoding.UTF8.GetBytes(send));
-                    await _webSocket.SendAsync(dataSend, WebSocketMessageType.Binary, endOfMessage, _cancellationTokenSource.Token);
-                    return true;
+                    return await SendData(send);
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(_eventId, ex, $"Send error {command}");
+                    _logger.LogError($"Send error {ex.Message} at {command}");
                     return false;
                 }
             }
@@ -299,16 +353,29 @@ namespace RoonApiLib
                     if (!silent)
                         _logger.LogTrace(send);
 
-                    ArraySegment<byte> dataSend = new ArraySegment<byte>(Encoding.UTF8.GetBytes(send));
-                    await _webSocket.SendAsync(dataSend, WebSocketMessageType.Binary, true, _cancellationTokenSource.Token);
-                    return true;
+                    return await SendData(send);
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(_eventId, ex, $"Reply error {command}");
+                    _logger.LogError($"Reply error {ex.Message} at {command}");
                     return false;
                 }
             }
+        }
+        private async Task<bool> SendData (string data, int timeout = 120000)
+        {
+            for (int i = 0; i < timeout; i++)
+            {
+                if (_webSocket != null)
+                {
+                    ArraySegment<byte> dataSend = new ArraySegment<byte>(Encoding.UTF8.GetBytes(data));
+                    await _webSocket.SendAsync(dataSend, WebSocketMessageType.Binary, true, _cancellationTokenSource.Token);
+                    return true;
+                }
+                await Task.Delay(100);
+            }
+            _logger.LogError("Wait for socket timed out");
+            return false;
         }
         async Task ParseResult(byte[] data, int byteCount, ReceivedContent content,  Dictionary<string, string> headerDict)
         {
@@ -390,16 +457,26 @@ namespace RoonApiLib
             Dictionary<string, string> headerDict = new Dictionary<string, string>();
             ReceivedContent content = new ReceivedContent();
             byte[] buffer = new byte[10000];
+            int requestId = 0;
+            bool rc;
+
+            _coreId = null;
+            rc = await GetRegistryInfo(async (reply) =>
+            {
+                _logger.LogInformation($"Registry Info {reply.DisplayName} ID {reply.CoreId}");
+                _coreId = reply.CoreId;
+                rc = await RegisterService(_registration);
+            });
             while (!_cancellationTokenSource.Token.IsCancellationRequested)
             {
                 try
                 {
+                    // Initialisation
                     ArraySegment<byte> dataRecv = new ArraySegment<byte>(buffer);
                     var result = await _webSocket.ReceiveAsync(dataRecv, _cancellationTokenSource.Token);
                     headerDict.Clear();
                     await ParseResult (dataRecv.Array, result.Count, content, headerDict);
                     string requestIdString;
-                    int requestId = 0;
                     if (headerDict.TryGetValue("Request-Id", out requestIdString))
                     {
                         Int32.TryParse(requestIdString, out requestId);
@@ -408,7 +485,6 @@ namespace RoonApiLib
                     {
                         case MessageRequest:
                             string replyBody;
-                            bool rc;
                             switch (content.Information)
                             {
                                 case ServicePing + "/ping":
@@ -453,9 +529,17 @@ namespace RoonApiLib
                             RoonRequest request;
                             if (_requests.TryGetValue(requestId, out request))
                             {
-                                request.StringResult = content.Body;
-                                request.DataResult = content.Data;
-                                request.Event.SetResult(true);
+                                if (request.OnReceived != null)
+                                {
+                                    _requests.Remove(requestId);
+                                    await request.OnReceived(content.Information, requestId, content.Body);
+                                }
+                                else
+                                {
+                                    request.StringResult = content.Body;
+                                    request.DataResult = content.Data;
+                                    request.Event.SetResult(true);
+                                }
                             }
                             else
                                 _logger.LogError($"COMPLETE {content.Information}");
@@ -472,17 +556,20 @@ namespace RoonApiLib
 
                             break;
                     }
+                    _receiveCount++;
                 }
                 catch (TaskCanceledException)
                 {
                     _logger.LogTrace("Receive Cancelled");
+                    break;
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(_eventId, ex, "Receive error");
+                    _logger.LogError($"Receive error {ex.Message}");
+                    break;
                 }
             }
-            _logger.LogTrace("Stop Receiving");
+            _logger.LogInformation($"Stop Receiving, {_receiveCount} received");
         }
         public void Close()
         {
@@ -499,29 +586,81 @@ namespace RoonApiLib
             }
             catch (Exception ex)
             {
-                _logger.LogError(_eventId, ex, "Close Error");
+                _logger.LogError($"Close Error {ex.Message}");
             }
         }
-        public void SaveRoonSettings (RoonSavings config)
+        public void SaveRoonSettings (RoonSavings settings)
         {
-            lock (this) {
-                string str = JsonConvert.SerializeObject(config);
-                _logger.LogTrace($"SaveRoonSettings : {str}");
-                File.WriteAllText(_configPath + "config.json", str);
-            }
+            SaveConfig(typeof(RoonSavings).Name, settings);
         }
         public RoonSavings LoadRoonSettings ()
         {
-            try
+            RoonSavings settings = LoadConfig<RoonSavings>(typeof(RoonSavings).Name);
+            if (settings == null)
+                settings = new RoonSavings();
+            return settings;
+        }
+        public object LoadConfig (string key)
+        {
+            object config;
+            if (_configuration.Count == 0)
             {
-                string str = File.ReadAllText(_configPath + "config.json");
-                _logger.LogTrace($"LoadRoonSettings : {str}");
-                return JsonConvert.DeserializeObject<RoonSavings>(str);
+                if (!LoadConfiguration())
+                    return null;
             }
-            catch (Exception ex)
+            _configuration.TryGetValue(key, out config);
+            return config;
+        }
+        public T LoadConfig<T> (string key)
+        {
+            object config = LoadConfig(key);
+            if (config == null)
+                return default(T);
+            if (config.GetType() == typeof(T))
+                return (T)config;
+            string str = JsonConvert.SerializeObject(config);
+            T result = JsonConvert.DeserializeObject<T>(str);
+            _configuration[key] = result;
+            return result;
+        }
+        public void SaveConfig<T> (string key, T config)
+        {
+            lock (this)
             {
-                _logger.LogError(_eventId, ex, $"LoadRoonSettings : Error");
-                return new RoonSavings ();
+                object oldConfig;
+                if (_configuration.TryGetValue(key, out oldConfig))
+                    _configuration[key] = config;
+                else
+                    _configuration.Add(key, config);
+            }
+            SaveConfiguration();
+        }
+        bool LoadConfiguration()
+        {
+            lock (this)
+            {
+                try
+                {
+                    string str = File.ReadAllText(_configPath + "Configuration.json");
+                    _logger.LogTrace($"LoadConfiguration : {str}");
+                    _configuration = JsonConvert.DeserializeObject<Dictionary<string, object>>(str);
+                    return true;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError($"LoadRoonSettings : Error {ex.Message}");
+                    _configuration = new Dictionary<string, object>();
+                    return false;
+                }
+            }
+        }
+        void SaveConfiguration()
+        {
+            lock (this)
+            {
+                string str = JsonConvert.SerializeObject(_configuration);
+                _logger.LogTrace($"SaveConfiguration : {str}");
+                File.WriteAllText(_configPath + "configuration.json", str);
             }
         }
     }

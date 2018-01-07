@@ -38,46 +38,23 @@ namespace RoonApiLib
             public int TcpPort              { get; set; }
             public int HttpPort             { get; set; }
         }
-        public Discovery (int timeout = 1000, ILogger logger = null)
+        public Discovery (string myIPAddress, int timeout = 1000, ILogger logger = null)
         {
             _timeout = timeout;
             _logger = logger == null ? NullLogger.Instance : logger;
-        }
-
-        public async Task Initialize ()
-        {
             IPEndPoint localEp;
-
             _soodMcAddress = IPAddress.Parse(SOOD_MULTICAST_IP);
-            string myIpAddress = await GetMyIPAddress();
-
-            localEp = new IPEndPoint(IPAddress.Parse(myIpAddress), 0);
+            localEp = new IPEndPoint(IPAddress.Parse(myIPAddress), 0);
             _udpClient = new UdpClient(localEp);
         }
+
         public async Task<List<Result>> QueryServiceId (Func<Result, bool> findFunction = null)
         {
             Message msg = new Message { ServiceId = SOOD_SID, TId = null };
             return await Query(msg, findFunction);
         }
-        public Task<string> GetMyIPAddress(bool ipv4 = true)
-        {
-            IPHostEntry host = Dns.GetHostEntry(Dns.GetHostName());
-            foreach (IPAddress ip in host.AddressList)
-            {
-                if (ip.AddressFamily == (ipv4 ? AddressFamily.InterNetwork : AddressFamily.InterNetworkV6))
-                {
-                    return Task.FromResult(ip.ToString());
-                }
-            }
-            return null;
-        }
         public async Task<List<Result>> Query (Message msg, Func<Result,bool> findFunction = null)
         {
-            if (_udpClient == null)
-            {
-                await Initialize();
-            }
-
             if (msg.TId == null)
                 msg.TId = Guid.NewGuid().ToString();
 

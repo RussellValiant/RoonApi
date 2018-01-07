@@ -69,6 +69,9 @@
             this.buttonSendStatus = new System.Windows.Forms.Button();
             this.textStatus = new System.Windows.Forms.TextBox();
             this.checkIsError = new System.Windows.Forms.CheckBox();
+            this.buttonPlayRadio = new System.Windows.Forms.Button();
+            this.textIpAddress = new System.Windows.Forms.TextBox();
+            this.label6 = new System.Windows.Forms.Label();
             ((System.ComponentModel.ISupportInitialize)(this.pictureBox)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.volumeSlider)).BeginInit();
             this.SuspendLayout();
@@ -399,7 +402,7 @@
             // 
             // buttonClose
             // 
-            this.buttonClose.Location = new System.Drawing.Point(37, 156);
+            this.buttonClose.Location = new System.Drawing.Point(37, 232);
             this.buttonClose.Name = "buttonClose";
             this.buttonClose.Size = new System.Drawing.Size(148, 46);
             this.buttonClose.TabIndex = 36;
@@ -409,7 +412,7 @@
             // 
             // buttonConnect
             // 
-            this.buttonConnect.Location = new System.Drawing.Point(207, 156);
+            this.buttonConnect.Location = new System.Drawing.Point(207, 232);
             this.buttonConnect.Name = "buttonConnect";
             this.buttonConnect.Size = new System.Drawing.Size(148, 46);
             this.buttonConnect.TabIndex = 37;
@@ -419,7 +422,7 @@
             // 
             // buttonSendStatus
             // 
-            this.buttonSendStatus.Location = new System.Drawing.Point(37, 225);
+            this.buttonSendStatus.Location = new System.Drawing.Point(37, 301);
             this.buttonSendStatus.Name = "buttonSendStatus";
             this.buttonSendStatus.Size = new System.Drawing.Size(148, 52);
             this.buttonSendStatus.TabIndex = 38;
@@ -429,7 +432,7 @@
             // 
             // textStatus
             // 
-            this.textStatus.Location = new System.Drawing.Point(207, 236);
+            this.textStatus.Location = new System.Drawing.Point(207, 312);
             this.textStatus.Name = "textStatus";
             this.textStatus.Size = new System.Drawing.Size(357, 31);
             this.textStatus.TabIndex = 39;
@@ -437,18 +440,48 @@
             // checkIsError
             // 
             this.checkIsError.AutoSize = true;
-            this.checkIsError.Location = new System.Drawing.Point(207, 298);
+            this.checkIsError.Location = new System.Drawing.Point(207, 374);
             this.checkIsError.Name = "checkIsError";
             this.checkIsError.Size = new System.Drawing.Size(113, 29);
             this.checkIsError.TabIndex = 40;
             this.checkIsError.Text = "Is Error";
             this.checkIsError.UseVisualStyleBackColor = true;
             // 
+            // buttonPlayRadio
+            // 
+            this.buttonPlayRadio.Location = new System.Drawing.Point(37, 438);
+            this.buttonPlayRadio.Name = "buttonPlayRadio";
+            this.buttonPlayRadio.Size = new System.Drawing.Size(148, 52);
+            this.buttonPlayRadio.TabIndex = 41;
+            this.buttonPlayRadio.Text = "Play Radio";
+            this.buttonPlayRadio.UseVisualStyleBackColor = true;
+            this.buttonPlayRadio.Click += new System.EventHandler(this.buttonPlayRadio_Click);
+            // 
+            // textIpAddress
+            // 
+            this.textIpAddress.Location = new System.Drawing.Point(260, 135);
+            this.textIpAddress.Name = "textIpAddress";
+            this.textIpAddress.Size = new System.Drawing.Size(304, 31);
+            this.textIpAddress.TabIndex = 43;
+            this.textIpAddress.Text = "192.168.1.130";
+            // 
+            // label6
+            // 
+            this.label6.AutoSize = true;
+            this.label6.Location = new System.Drawing.Point(32, 138);
+            this.label6.Name = "label6";
+            this.label6.Size = new System.Drawing.Size(151, 25);
+            this.label6.TabIndex = 42;
+            this.label6.Text = "My IP Address";
+            // 
             // Test
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(12F, 25F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(1785, 1160);
+            this.Controls.Add(this.textIpAddress);
+            this.Controls.Add(this.label6);
+            this.Controls.Add(this.buttonPlayRadio);
             this.Controls.Add(this.checkIsError);
             this.Controls.Add(this.textStatus);
             this.Controls.Add(this.buttonSendStatus);
@@ -544,6 +577,9 @@
         private System.Windows.Forms.Button buttonSendStatus;
         private System.Windows.Forms.TextBox textStatus;
         private System.Windows.Forms.CheckBox checkIsError;
+        private System.Windows.Forms.Button buttonPlayRadio;
+        private System.Windows.Forms.TextBox textIpAddress;
+        private System.Windows.Forms.Label label6;
     }
 }
 

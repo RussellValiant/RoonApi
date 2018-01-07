@@ -15,6 +15,6 @@ namespace RoonApiLib
         Task<bool> SetMuted     (bool muted);
         Task<bool> SetPower     (bool on);
         Task<bool> Select       ();
-        Task<bool> GetStatus    ();
+        Task<bool> GetStatus    (int maxAgeMS);
     }
 }

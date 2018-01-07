@@ -14,7 +14,7 @@ namespace RoonApiLib
             standby = 0,
             selected, deselected
         }
-        public class RoonApiSource
+        public class Source
         {
             [JsonProperty("control_key")]
             public int ControlKey { get; set; }
@@ -26,42 +26,41 @@ namespace RoonApiLib
             [JsonProperty("status")]
             public EStatus Status { get; set; }
         }
-        public class RoonApiSourceControls
+        public class SourceControls
         {
             [JsonProperty("controls")]
-            public RoonApiSource[] Controls { get; set; }
+            public Source[] Controls { get; set; }
         }
-        public class RoonApiSourceControlsChanged
+        public class SourceControlsChanged
         {
             [JsonProperty("controls_changed")]
-            public RoonApiSource[] Controls { get; set; }
+            public Source[] Controls { get; set; }
         }
-        public class RoonApiSetState
+        public class SetState
         {
             [JsonProperty("control_key")]
             public int ControlKey { get; set; }
             [JsonProperty("status")]
             public RoonApiControlSource.EStatus Status { get; set; }
         }
-        public class RoonApiSetConvenience
+        public class SetConvenience
         {
             [JsonProperty("control_key")]
             public int ControlKey { get; set; }
         }
 
-
-        public class RoonApiSourceFunctions
+        public class SourceFunctions
         {
-            public Func<RoonApiSetState, Task<bool>>        SetStandby;
-            public Func<RoonApiSetConvenience, Task<bool>>  SetConvenience;
+            public Func<SetState, Task<bool>>        SetStandby;
+            public Func<SetConvenience, Task<bool>>  SetConvenience;
         }
 
-        RoonApi _api;
-        List<RoonApiSource>                     _controls;
-        List<RoonApiSourceFunctions>            _functions;
-        RoonApiSubscriptionHandler              _subscriptionHandler;
-        int                                     _id;
-        bool                                    _simulateFeedback;
+        RoonApi                          _api;
+        List<Source>                     _controls;
+        List<SourceFunctions>            _functions;
+        RoonApiSubscriptionHandler       _subscriptionHandler;
+        int                              _id;
+        bool                             _simulateFeedback;
         public RoonApiControlSource(RoonApi api, bool simulateFeedback)
         {
             _id = 0;
@@ -69,10 +68,12 @@ namespace RoonApiLib
             _simulateFeedback = simulateFeedback;
             _subscriptionHandler = new RoonApiSubscriptionHandler();
             _api.AddService(RoonApi.ControlSource, OnSourceControl);
-            _controls = new List<RoonApiSource>();
-            _functions = new List<RoonApiSourceFunctions> ();
+            _controls = new List<Source>();
+            _functions = new List<SourceFunctions> ();
         }
-        public void AddControl(RoonApiSource source, RoonApiSourceFunctions functions)
+
+        public bool HasSubscriptions => _subscriptionHandler.NumberOfSubcriptions > 0;
+        public void AddControl(Source source, SourceFunctions functions)
         {
             source.ControlKey = _id;
             _controls.Add(source);
@@ -87,7 +88,7 @@ namespace RoonApiLib
             {
                 case RoonApi.ControlSource + "/subscribe_controls":
                     _subscriptionHandler.AddSubscription(body, requestId);
-                    replyBody = JsonConvert.SerializeObject(new RoonApiSourceControls { Controls = _controls.ToArray() });
+                    replyBody = JsonConvert.SerializeObject(new SourceControls { Controls = _controls.ToArray() });
                     rc = await _api.Reply("Subscribed", requestId, true, replyBody);
                     break;
                 case RoonApi.ControlSource + "/unsubscribe_controls":
@@ -95,11 +96,11 @@ namespace RoonApiLib
                     rc = await _api.Reply("Unsubscribed", requestId);
                     break;
                 case RoonApi.ControlSource + "/get_all":
-                    replyBody = JsonConvert.SerializeObject(new RoonApiSourceControls { Controls = _controls.ToArray() });
+                    replyBody = JsonConvert.SerializeObject(new SourceControls { Controls = _controls.ToArray() });
                     rc = await _api.Reply("Success", requestId, false, replyBody);
                     break;
                 case RoonApi.ControlSource + "/standby":
-                    var state = JsonConvert.DeserializeObject<RoonApiSetState>(body);
+                    var state = JsonConvert.DeserializeObject<SetState>(body);
                     if (state.ControlKey >= _controls.Count)
                     {
                         rc = await _api.Reply("Failure", requestId);
@@ -114,7 +115,7 @@ namespace RoonApiLib
                     }
                     break;
                 case RoonApi.ControlSource + "/convenience_switch":
-                    var convenience = JsonConvert.DeserializeObject<RoonApiSetConvenience>(body);
+                    var convenience = JsonConvert.DeserializeObject<SetConvenience>(body);
                     if (convenience.ControlKey >= _controls.Count)
                     {
                         rc = await _api.Reply("Failure", requestId);
@@ -131,9 +132,9 @@ namespace RoonApiLib
 
             return rc;
         }
-        public async Task<bool> UpdateState(RoonApiSource change)
+        public async Task<bool> UpdateState(Source change)
         {
-            RoonApiSourceControlsChanged changed = new RoonApiSourceControlsChanged { Controls = new RoonApiSource[] { change } };
+            SourceControlsChanged changed = new SourceControlsChanged { Controls = new Source[] { change } };
             string replyBody = JsonConvert.SerializeObject(changed);
             var result = await _subscriptionHandler.ReplyAll(_api, "Changed", replyBody);
             return true;

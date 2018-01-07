@@ -12,23 +12,26 @@ namespace TestRoonApi
 {
     public partial class Test : Form
     {
-        LoggerFactory                   _loggerFactory;
-        string                          _selectedZoneId;
-        string                          _selectedOutputId;
-        RoonApi                         _api;
-        RoonApiTransport                _apiTransport;
-        RoonApiBrowse                   _apiBrowse;
-        RoonApiImage                    _apiImage;
-        RoonApiControlVolume            _apiControlVolume;
-        RoonApiControlSource            _apiControlSource;
-        RoonApiStatus                   _apiStatus;
-        string                          _lastImageKey;
-        Stack<string>                   _itemStack;
-        bool                            _setZoneSettings;
-        bool                            _setOutputVolume;
-        Discovery.Result                _core;
-        RoonApi.RoonRegister            _roonRegister;
-        List<RoonApiBrowse.RoonLoadItem> _items;
+        LoggerFactory _loggerFactory;
+        string _selectedZoneId;
+        string _selectedOutputId;
+        RoonApi _api;
+        RoonApiTransport _apiTransport;
+        RoonApiBrowse _apiBrowse;
+        RoonApiImage _apiImage;
+        RoonApiControlVolume _apiControlVolume;
+        RoonApiControlSource _apiControlSource;
+        RoonApiStatus _apiStatus;
+        RoonApiSettings _apiSettings;
+        string _lastImageKey;
+        Stack<string> _itemStack;
+        bool _setZoneSettings;
+        bool _setOutputVolume;
+        Discovery.Result _core;
+        RoonApi.RoonRegister _roonRegister;
+        List<RoonApiBrowse.LoadItem> _items;
+        List<RoonApiSettings.LayoutBase> _layout;
+        Dictionary<string, string> _values;
         public Test()
         {
             InitializeComponent();
@@ -46,9 +49,41 @@ namespace TestRoonApi
             _apiBrowse = new RoonApiBrowse(_api);
             _apiStatus = new RoonApiStatus(_api, "All systems roger");
 
+            _layout = new List<RoonApiSettings.LayoutBase>(new RoonApiSettings.LayoutBase[]
+            {
+                new RoonApiSettings.LayoutLabel    ("*A string setting*"),
+                new RoonApiSettings.LayoutString   ("A string setting", "text", 20) { SubTitle = "subtitle" },
+                new RoonApiSettings.LayoutButton   ("A Button", "button", "1"),
+                new RoonApiSettings.LayoutDropDown ("A combo setting",  "combo", new RoonApiSettings.LayoutDropDownValue[] {
+                                                         new RoonApiSettings.LayoutDropDownValue("text1"),
+                                                         new RoonApiSettings.LayoutDropDownValue("text2"),
+                                                         new RoonApiSettings.LayoutDropDownValue("text3")
+                                                    })
+            });
+            _values = new Dictionary<string, string>();
+            _values.Add("text", "*hudriwudri*");
+            _values.Add("button", "true");
+            _values.Add("combo", "text2");
+
+            _apiSettings = new RoonApiSettings(_api, _layout, _values, new RoonApiSettings.Functions {
+                ButtonPressed = (bp) => {
+                    return Task.FromResult(true);
+                },
+                SaveSettings = (s) =>
+                {
+                    //values["text"] = "HASERROR";
+                    //layout[0].Error = "Her is an error";
+                    _values["combo"] = s.Settings.Values["combo"];
+                    if (_values["combo"] == "text3")
+                        return Task.FromResult(true);
+                    else
+                        return Task.FromResult(false);
+                }
+            });
+
             // Init Controls
             _apiControlVolume = new RoonApiControlVolume(_api, true);
-            RoonApiControlVolume.RoonApiVolume volume = new RoonApiControlVolume.RoonApiVolume
+            RoonApiControlVolume.Volume volume = new RoonApiControlVolume.Volume
             {
                 DisplayName = "Ric Volume Control",
                 VolumeMax = 100,
@@ -56,19 +91,19 @@ namespace TestRoonApi
                 VolumeType = "number",
                 VolumeValue = 4
             };
-            _apiControlVolume.AddControl(volume, new RoonApiControlVolume.RoonApiVolumeFunctions {
+            _apiControlVolume.AddControl(volume, new RoonApiControlVolume.VolumeFunctions {
                 SetVolume = (arg) => { System.Diagnostics.Debug.WriteLine($"SETVOLUME {arg.Mode} {arg.Value}"); return Task.FromResult(true); },
                 Mute = (arg) => { System.Diagnostics.Debug.WriteLine($"MUTE {arg.Mute} "); return Task.FromResult(true); }
             });
 
             _apiControlSource = new RoonApiControlSource(_api, true);
-            RoonApiControlSource.RoonApiSource source = new RoonApiControlSource.RoonApiSource
+            RoonApiControlSource.Source source = new RoonApiControlSource.Source
             {
                 DisplayName = "Ric Source Control",
                 SupportsStandBy = true,
                 Status = RoonApiControlSource.EStatus.selected
             };
-            _apiControlSource.AddControl(source, new RoonApiControlSource.RoonApiSourceFunctions {
+            _apiControlSource.AddControl(source, new RoonApiControlSource.SourceFunctions {
                 SetStandby = (arg) => { System.Diagnostics.Debug.WriteLine($"STATE {arg.Status}"); return Task.FromResult(true); },
                 SetConvenience = (arg) => { System.Diagnostics.Debug.WriteLine($"SETCONVENIENCE"); return Task.FromResult(true); }
             });
@@ -84,8 +119,8 @@ namespace TestRoonApi
                 ExtensionId = "com.ric.test",
                 Token = null,
                 OptionalServices = new string[0],
-                RequiredServices = new string[] { RoonApi.ServiceTransport, RoonApi.ServiceImage, RoonApi.ServiceBrowse },
-                ProvidedServices = new string[] { RoonApi.ServiceStatus, RoonApi.ServicePairing, RoonApi.ServicePing, RoonApi.ControlVolume, RoonApi.ControlSource }
+                RequiredServices = new string[] { RoonApi.ServiceTransport, RoonApi.ServiceImage, RoonApi.ServiceBrowse,  },
+                ProvidedServices = new string[] { RoonApi.ServiceStatus, RoonApi.ServicePairing, RoonApi.ServiceSettings, RoonApi.ServicePing, RoonApi.ControlVolume, RoonApi.ControlSource }
             };
 
             // Init UI
@@ -104,6 +139,7 @@ namespace TestRoonApi
         async Task OnPaired (string coreId)
         {
             var zones = await _apiTransport.SubscribeZones(0, onChangedZones);
+
         }
         Task OnUnPaired (string coreId)
         {
@@ -116,14 +152,11 @@ namespace TestRoonApi
             if (_core == null)
                 return;
 
-            await _api.Connect(_core.CoreIPAddress, _core.HttpPort);
-            RoonApi.RoonReply info = await _api.GetRegistryInfo();
-
-            var register = await _api.RegisterService(_roonRegister);
+            _api.StartReceiver(_core.CoreIPAddress, _core.HttpPort, _roonRegister);
         }
         async Task DiscoverCore ()
         {
-            Discovery discovery = new Discovery(1000, _loggerFactory.CreateLogger("Discovery"));
+            Discovery discovery = new Discovery(textIpAddress.Text, 1000, _loggerFactory.CreateLogger("Discovery"));
             var coreList = await discovery.QueryServiceId((res) => {
                 if (res.CoreName == textRoonCoreName.Text)
                 {
@@ -147,8 +180,7 @@ namespace TestRoonApi
                 }
             }
         }
-
-        Task onChangedZones (RoonApiTransport.RoonZonesChanged zones)
+        Task onChangedZones (RoonApiTransport.ChangedZoones zones)
         {
             if (this.InvokeRequired)
             {
@@ -169,7 +201,7 @@ namespace TestRoonApi
             {
                 foreach (string zoneid in zones.ZonesRemoved)
                 {
-                    RoonApiTransport.RoonZone zone;
+                    RoonApiTransport.Zone zone;
                     if (_apiTransport.Zones.TryGetValue(zoneid, out zone))
                     {
                         foreach (var item in comboZone.Items)
@@ -199,7 +231,7 @@ namespace TestRoonApi
         {
             if (_selectedZoneId == null)
                 return;
-            RoonApiTransport.RoonZone zone;
+            RoonApiTransport.Zone zone;
             if (!_apiTransport.Zones.TryGetValue(_selectedZoneId, out zone))
                 return;
 
@@ -256,11 +288,11 @@ namespace TestRoonApi
             _items = null;
             if (string.IsNullOrEmpty(input))
                 input = null;
-            List<RoonApiBrowse.RoonLoadItem> list = new List<RoonApiBrowse.RoonLoadItem>();
-            var browseResult = await _apiBrowse.Browse(new RoonApiBrowse.RoonBrowseOptions { Hierarchy = "browse", ZoneOrOutputId = _selectedZoneId, PopAll = itemKey == null, ItemKey = itemKey, Input = input });
+            List<RoonApiBrowse.LoadItem> list = new List<RoonApiBrowse.LoadItem>();
+            var browseResult = await _apiBrowse.Browse(new RoonApiBrowse.BrowseOptions { Hierarchy = "browse", ZoneOrOutputId = _selectedZoneId, PopAll = itemKey == null, ItemKey = itemKey, Input = input });
             for (int i = 0; i < browseResult.List.Count; i+= 100)
             {
-                var loadResult = await _apiBrowse.Load(new RoonApiBrowse.RoonLoadOptions { Hierarchy = "browse", Offset = i, SetDisplayOffset = i });
+                var loadResult = await _apiBrowse.Load(new RoonApiBrowse.LoadOptions { Hierarchy = "browse", Offset = i, SetDisplayOffset = i });
                 list.AddRange(loadResult.Items);
             }
             if (itemKey != null)
@@ -278,10 +310,10 @@ namespace TestRoonApi
         async void UpdateImage(string imageKey)
         {
             _apiImage = new RoonApiImage(_api);
-            RoonApiImage.RoonImage image = new RoonApiImage.RoonImage
+            RoonApiImage.Image image = new RoonApiImage.Image
             {
                 ImageKey = imageKey,
-                Options = new RoonApiImage.RoonImageOptions
+                Options = new RoonApiImage.Options
                 {
                     Format = "image/png",
                     Height = 512,
@@ -339,12 +371,12 @@ namespace TestRoonApi
         {
             if (listItems.SelectedIndex >= 0 && _items != null)
             {
-                RoonApiBrowse.RoonLoadItem item = _items[listItems.SelectedIndex];
+                RoonApiBrowse.LoadItem item = _items[listItems.SelectedIndex];
                 if (item.Hint != "action")
                     await LoadItems(item.ItemKey, textSearch.Text);
                 else
                 {
-                    var browseResult = await _apiBrowse.Browse(new RoonApiBrowse.RoonBrowseOptions { Hierarchy = "browse", ZoneOrOutputId = _selectedZoneId, ItemKey = item.ItemKey });
+                    var browseResult = await _apiBrowse.Browse(new RoonApiBrowse.BrowseOptions { Hierarchy = "browse", ZoneOrOutputId = _selectedZoneId, ItemKey = item.ItemKey });
                 }
             }
         }
@@ -386,17 +418,30 @@ namespace TestRoonApi
             comboZone.Items.Clear();
         }
 
-        private async void buttonConnect_Click(object sender, EventArgs e)
+        private void buttonConnect_Click(object sender, EventArgs e)
         {
-            await _api.Connect(_core.CoreIPAddress, _core.HttpPort);
-            RoonApi.RoonReply info = await _api.GetRegistryInfo();
-
-            var register = await _api.RegisterService(_roonRegister);
+            _api.StartReceiver(_core.CoreIPAddress, _core.HttpPort, _roonRegister);
         }
 
         private async void buttonSendStatus_Click(object sender, EventArgs e)
         {
             await _apiStatus.SetStatus(textStatus.Text, checkIsError.Checked);
+        }
+
+        private async void buttonPlayRadio_Click(object sender, EventArgs e)
+        {
+            var options = new RoonApiBrowse.BrowseOptions { Hierarchy = "browse", ZoneOrOutputId = _selectedZoneId, PopAll = true };
+            var loadResult = await _apiBrowse.BrowseAndLoad(options);
+            var loadItem = loadResult.FindItem(RoonApiBrowse.BrowseInternetRadio);
+            if (loadItem != null)
+            {
+                options.PopAll = false;
+                options.ItemKey = loadItem.ItemKey;
+            }
+            loadResult = await _apiBrowse.BrowseAndLoad(options);
+            loadItem = loadResult.Items[0];
+            options.ItemKey = loadItem.ItemKey;
+            loadResult = await _apiBrowse.BrowseAndLoad(options);
         }
     }
 }

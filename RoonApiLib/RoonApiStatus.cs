@@ -20,13 +20,15 @@ namespace RoonApiLib
         RoonStatus  _currentStatus;
         RoonApiSubscriptionHandler _subscriptionHandler;
 
-        public RoonApiStatus(RoonApi api, string message, bool isError = false)
+        public RoonApiStatus(RoonApi api, string message = "", bool isError = false)
         {
             _api = api;
             _subscriptionHandler = new RoonApiSubscriptionHandler();
             _currentStatus = new RoonStatus { Message = message, IsError = isError };
             _api.AddService(RoonApi.ServiceStatus, OnStatus);
         }
+        public RoonStatus CurrentStatus => _currentStatus;
+        public bool HasSubscriptions => _subscriptionHandler.NumberOfSubcriptions > 0;
 
         async Task<bool> OnStatus(string information, int requestId, string body)
         {

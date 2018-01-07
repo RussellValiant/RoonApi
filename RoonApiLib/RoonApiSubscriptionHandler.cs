@@ -6,16 +6,17 @@ namespace RoonApiLib
 {
     public class RoonApiSubscriptionHandler
     {
-        internal class RoonSubscription
+        internal class Subscription
         {
             [JsonProperty("subscription_key")]
             public int SubscriptionKey { get; set; }
         }
         Dictionary<int, int> _subscriptions = new Dictionary<int, int>();
 
+        internal int NumberOfSubcriptions => _subscriptions.Count;
         internal bool AddSubscription(string body, int requestId)
         {
-            RoonSubscription subscription = JsonConvert.DeserializeObject<RoonSubscription>(body);
+            Subscription subscription = JsonConvert.DeserializeObject<Subscription>(body);
             return AddSubscription(subscription.SubscriptionKey, requestId);
         }
         internal bool AddSubscription(int key, int requestId)
@@ -30,7 +31,7 @@ namespace RoonApiLib
         }
         internal bool RemoveSubscription(string body)
         {
-            RoonSubscription subscription = JsonConvert.DeserializeObject<RoonSubscription>(body);
+            Subscription subscription = JsonConvert.DeserializeObject<Subscription>(body);
             return RemoveSubscription(subscription.SubscriptionKey);
         }
         internal bool RemoveSubscription(int key)
@@ -43,7 +44,7 @@ namespace RoonApiLib
                 return true;
             }
         }
-        public async Task<int> ReplyAll(RoonApi api, string command, string body = null, string contentType = "application/json")
+        internal async Task<int> ReplyAll(RoonApi api, string command, string body = null, string contentType = "application/json")
         {
             int count = 0;
             foreach (var subscription in _subscriptions)

@@ -1,6 +1,8 @@
 ﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using RoonApiLib;
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -12,31 +14,57 @@ namespace RoonApiLib
         RoonApiControlVolume                _apiControlVolume;
         RoonApiControlSource                _apiControlSource;
         RoonApiStatus                       _apiStatus;
+        RoonApiSettings                     _apiSettings;
         Discovery.Result                    _core;
         RoonApi.RoonRegister                _roonRegister;
-        RoonApiControlVolume.RoonApiVolume  _volume;
-        RoonApiControlSource.RoonApiSource  _source;
+        RoonApiControlVolume.Volume         _volume;
+        RoonApiControlSource.Source         _source;
         ILogger                             _logger;
         IRoonControlAdaptor                 _adaptor;
-        bool                                _online;
+        string                              _coreName;
+        bool                                _isOnline;
         RoonApiControlSource.EStatus        _lastStatus;
         int                                 _lastVolume;
         bool                                _lastMuted;
         CancellationTokenSource             _cancellationTokenSource;
         DateTime                            _nextDeviceCycle;
         int                                 _slowCycleMS, _fastCycleMS, _currentCycleMS;
-
-
-        public async Task<bool> Start (IRoonControlAdaptor adaptor, string coreName, int slowCycleMS, int fastCycleMS, ILogger logger)
+        string                              _myIPAddress;
+        public RoonControl (IRoonControlAdaptor adaptor, string myIPAddress, string coreName, int slowCycleMS, int fastCycleMS, string persistencePath, ILogger logger)
         {
             _adaptor = adaptor;
-            _logger = logger;            
-            _api = new RoonApi(null, null, null, logger);
-            _apiStatus = new RoonApiStatus(_api, $"{_adaptor.DisplayName} OK");
-            _online = false;
+            _myIPAddress = myIPAddress;
+            _coreName = coreName;
+            _logger = logger;
+            _api = new RoonApi(null, null, persistencePath, logger);
+            _apiStatus = new RoonApiStatus(_api);
+            _isOnline = false;
             _cancellationTokenSource = new CancellationTokenSource();
             _slowCycleMS = slowCycleMS;
             _fastCycleMS = fastCycleMS;
+        }
+        public RoonApiStatus    ApiStatus => _apiStatus;
+        public RoonApiSettings  ApiSettings => _apiSettings;
+        public RoonApiControlVolume ApiControlVolume => _apiControlVolume;
+        public RoonApiControlSource ApiControlSource => _apiControlSource;
+        public bool IsOnline => _isOnline;
+        public CancellationTokenSource CancellationTokenSource => _cancellationTokenSource;
+
+        public void AddSettings (List<RoonApiSettings.LayoutBase> layout, Dictionary<string,string> values, RoonApiSettings.Functions functions)
+        {
+            _apiSettings = new RoonApiSettings(_api, layout, values, functions);
+        }
+        public bool HasSubScriptions
+        {
+            get
+            {
+                if (_apiControlVolume == null || _apiControlSource == null)
+                    return false;
+                return _apiControlSource.HasSubscriptions || _apiControlVolume.HasSubscriptions;
+            }
+        }
+        public async Task<bool> Start ()
+        {
 
             _lastStatus = GetSourceControlStatus();
             _lastVolume = _adaptor.Volume;
@@ -44,10 +72,10 @@ namespace RoonApiLib
 
             SetSlowCycle();
 
-            logger.LogInformation("Start RIC's Roon Controller");
+            _logger.LogInformation("Start RIC's Roon Controller");
             // Init Controls
             _apiControlVolume = new RoonApiControlVolume(_api, false);
-            _volume = new RoonApiControlVolume.RoonApiVolume
+            _volume = new RoonApiControlVolume.Volume
             {
                 DisplayName = _adaptor.DisplayName + " Volume",
                 VolumeMax = _adaptor.MaxVolume,
@@ -56,7 +84,7 @@ namespace RoonApiLib
                 VolumeValue = _adaptor.Volume,
                 IsMuted = _adaptor.Muted
             };
-            _apiControlVolume.AddControl(_volume, new RoonApiControlVolume.RoonApiVolumeFunctions
+            _apiControlVolume.AddControl(_volume, new RoonApiControlVolume.VolumeFunctions
             {
                 SetVolume = async (arg) => {
                     _logger.LogTrace($"SETVOLUME {arg.Mode} {arg.Value}"); 
@@ -73,13 +101,13 @@ namespace RoonApiLib
             });
 
             _apiControlSource = new RoonApiControlSource(_api, false);
-            _source = new RoonApiControlSource.RoonApiSource
+            _source = new RoonApiControlSource.Source
             {
                 DisplayName = _adaptor.DisplayName + " Source",
                 SupportsStandBy = true,
                 Status = GetSourceControlStatus ()
             };
-            _apiControlSource.AddControl(_source, new RoonApiControlSource.RoonApiSourceFunctions
+            _apiControlSource.AddControl(_source, new RoonApiControlSource.SourceFunctions
             {
                 SetStandby = async (arg) => {
                     _logger.LogTrace($"SET STANDBY {arg.Status}");
@@ -99,6 +127,9 @@ namespace RoonApiLib
             });
 
             // Init Service Registration
+            List<string> services = new List<string>(new string[] { RoonApi.ServiceStatus, RoonApi.ControlVolume, RoonApi.ControlSource });
+            if (_apiSettings != null)
+                services.Add(RoonApi.ServiceSettings);
             _roonRegister = new RoonApi.RoonRegister
             {
                 DisplayName = "Ric's Roon Controller",
@@ -110,12 +141,12 @@ namespace RoonApiLib
                 Token = null,
                 OptionalServices = new string[0],
                 RequiredServices = new string[0],
-                ProvidedServices = new string[] { RoonApi.ServiceStatus, RoonApi.ControlVolume, RoonApi.ControlSource }
+                ProvidedServices = services.ToArray()
             };
 
-            Discovery discovery = new Discovery(1000, _logger);
+            Discovery discovery = new Discovery(_myIPAddress, 1000, _logger);
             var coreList = await discovery.QueryServiceId((res) => {
-                if (res.CoreName == coreName)
+                if (res.CoreName == _coreName)
                 {
                     _core = res;
                     return true;
@@ -123,12 +154,8 @@ namespace RoonApiLib
                 return false;
             });
 
-            await _api.Connect(_core.CoreIPAddress, _core.HttpPort);
-
-            RoonApi.RoonReply info = await _api.GetRegistryInfo();
-
-            bool rc = await _api.RegisterService(_roonRegister);
-            return rc;
+            _api.StartReceiver(_core.CoreIPAddress, _core.HttpPort, _roonRegister);
+            return true;
         }
         void SetFastCycle ()
         {
@@ -143,7 +170,6 @@ namespace RoonApiLib
             _nextDeviceCycle = DateTime.UtcNow.AddMilliseconds(_slowCycleMS);
         }
 
-
         public async Task ProcessDeviceChangesLoop ()
         {
             while (!_cancellationTokenSource.Token.IsCancellationRequested)
@@ -152,16 +178,16 @@ namespace RoonApiLib
                 await Task.Delay(_fastCycleMS);
             }
         }
-        public async Task ProcessDevicesChanges ()
+        public async Task ProcessDevicesChanges (bool sendStatus = true)
         {
             if (DateTime.UtcNow < _nextDeviceCycle)
                 return;
 
             _nextDeviceCycle = DateTime.UtcNow.AddMilliseconds(_currentCycleMS);
 
-            if (await _adaptor.GetStatus())
+            if (await _adaptor.GetStatus(_fastCycleMS))
             {
-                if (!_online)
+                if (sendStatus && !_isOnline)
                 {
                     await _apiStatus.SetStatus($"{_adaptor.DisplayName} OK", false);
                 }
@@ -179,15 +205,15 @@ namespace RoonApiLib
                     _logger.LogTrace($"UPDATESTATUS {newStatus}");
                     await _apiControlSource.UpdateState(_source);
                 }
-                _online = true;
+                _isOnline = true;
             }
             else
             {
-                if (_online)
+                if (sendStatus && _isOnline)
                 {
                     await _apiStatus.SetStatus($"{_adaptor.DisplayName} FAILED", true);
                 }
-                _online = false;
+                _isOnline = false;
             }
 
         }

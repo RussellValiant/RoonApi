@@ -11,7 +11,7 @@ namespace RoonApiLib
             fit = 0,
             fill, stretch
         }
-        public class RoonImageOptions
+        public class Options
         {
             [JsonConverter(typeof(StringEnumConverter))]
             [JsonProperty("scale")]
@@ -23,12 +23,12 @@ namespace RoonApiLib
             [JsonProperty("format")]
             public string Format { get; set; }
         }
-        public class RoonImage
+        public class Image
         {
             [JsonProperty("image_key")]
             public string ImageKey { get; set; }
             [JsonProperty("options")]
-            public RoonImageOptions Options { get; set; }
+            public Options Options { get; set; }
         }
 
         RoonApi _api;
@@ -37,9 +37,9 @@ namespace RoonApiLib
         {
             _api = api; 
         }
-        public async Task<byte[]> GetImage(RoonImage image)
+        public async Task<byte[]> GetImage(Image image)
         {
-            var result = await _api.SendReceive<byte[], RoonImage>(RoonApi.ServiceImage + "/get_image", image);
+            var result = await _api.SendReceive<byte[], Image>(RoonApi.ServiceImage + "/get_image", image);
             return result;
         }
     }

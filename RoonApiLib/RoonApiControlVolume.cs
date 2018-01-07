@@ -12,7 +12,7 @@ namespace RoonApiLib
             standby = 0,
             selected, deselected
         }
-        public class RoonApiVolume
+        public class Volume
         {
             [JsonProperty("display_name")]
             public string DisplayName { get; set; }
@@ -31,17 +31,17 @@ namespace RoonApiLib
             [JsonProperty("control_key")]
             public int ControlKey { get; set; }
         }
-        public class RoonApiVolumeControls
+        public class VolumeControls
         {
             [JsonProperty("controls")]
-            public RoonApiVolume[] Controls { get; set; }
+            public Volume[] Controls { get; set; }
         }
-        public class RoonApiVolumeControlsChanged
+        public class VolumeControlsChanged
         {
             [JsonProperty("controls_changed")]
-            public RoonApiVolume[] Controls { get; set; }
+            public Volume[] Controls { get; set; }
         }
-        public class RoonApiSetVolume
+        public class SetVolume
         {
             [JsonProperty("control_key")]
             public int ControlKey { get; set; }
@@ -50,21 +50,21 @@ namespace RoonApiLib
             [JsonProperty("value")]
             public int Value { get; set; }
         }
-        public class RoonApiSetMute
+        public class SetMute
         {
             [JsonProperty("control_key")]
             public int ControlKey { get; set; }
             [JsonProperty("mute")]
             public RoonApiTransport.EMute Mute { get; set; }
         }
-        public class RoonApiVolumeFunctions
+        public class VolumeFunctions
         {
-            public Func<RoonApiSetVolume, Task<bool>>   SetVolume;
-            public Func<RoonApiSetMute, Task<bool>>     Mute;
+            public Func<SetVolume, Task<bool>>   SetVolume;
+            public Func<SetMute, Task<bool>>     Mute;
         }
         RoonApi                         _api;
-        List<RoonApiVolume>             _controls;
-        List<RoonApiVolumeFunctions>    _functions;
+        List<Volume>                    _controls;
+        List<VolumeFunctions>           _functions;
         RoonApiSubscriptionHandler      _subscriptionHandler;
         int                             _id;
         bool                            _simulateFeedback;
@@ -75,10 +75,11 @@ namespace RoonApiLib
             _simulateFeedback = simulateFeedback;
             _subscriptionHandler = new RoonApiSubscriptionHandler();
             _api.AddService(RoonApi.ControlVolume, OnVolumeControl);
-            _controls = new List<RoonApiVolume>();
-            _functions = new List<RoonApiVolumeFunctions>();
+            _controls = new List<Volume>();
+            _functions = new List<VolumeFunctions>();
         }
-        public void AddControl (RoonApiVolume volume, RoonApiVolumeFunctions functions)
+        public bool HasSubscriptions => _subscriptionHandler.NumberOfSubcriptions > 0;
+        public void AddControl (Volume volume, VolumeFunctions functions)
         {
             volume.ControlKey = _id;
             _controls.Add(volume);
@@ -93,7 +94,7 @@ namespace RoonApiLib
             {
                 case RoonApi.ControlVolume + "/subscribe_controls":
                     _subscriptionHandler.AddSubscription(body, requestId);
-                    replyBody = JsonConvert.SerializeObject(new RoonApiVolumeControls { Controls = _controls.ToArray() });
+                    replyBody = JsonConvert.SerializeObject(new VolumeControls { Controls = _controls.ToArray() });
                     rc = await _api.Reply("Subscribed", requestId, true, replyBody);
                     break;
                 case RoonApi.ControlVolume + "/unsubscribe_controls":
@@ -101,11 +102,11 @@ namespace RoonApiLib
                     rc = await _api.Reply("Unsubscribed", requestId);
                     break;
                 case RoonApi.ControlVolume + "/get_all":
-                    replyBody = JsonConvert.SerializeObject(new RoonApiVolumeControls { Controls = _controls.ToArray() });
+                    replyBody = JsonConvert.SerializeObject(new VolumeControls { Controls = _controls.ToArray() });
                     rc = await _api.Reply("Success", requestId, false, replyBody);
                     break;
                 case RoonApi.ControlVolume + "/set_volume":
-                    var volume = JsonConvert.DeserializeObject<RoonApiSetVolume>(body);
+                    var volume = JsonConvert.DeserializeObject<SetVolume>(body);
                     if (volume.ControlKey >= _controls.Count)
                     {
                         rc = await _api.Reply("Failure", requestId);
@@ -120,7 +121,7 @@ namespace RoonApiLib
                     }
                     break;
                 case RoonApi.ControlVolume + "/set_mute":
-                    var mute = JsonConvert.DeserializeObject<RoonApiSetMute>(body);
+                    var mute = JsonConvert.DeserializeObject<SetMute>(body);
                     if (mute.ControlKey >= _controls.Count)
                     {
                         rc = await _api.Reply("Failure", requestId);
@@ -138,9 +139,9 @@ namespace RoonApiLib
 
             return rc;
         }
-        public async Task<bool> UpdateState (RoonApiVolume change)
+        public async Task<bool> UpdateState (Volume change)
         {
-            RoonApiVolumeControlsChanged changed = new RoonApiVolumeControlsChanged { Controls = new RoonApiVolume[] { change } };
+            VolumeControlsChanged changed = new VolumeControlsChanged { Controls = new Volume[] { change } };
             string replyBody = JsonConvert.SerializeObject(changed);
             var result = await _subscriptionHandler.ReplyAll(_api, "Changed", replyBody);
             return true;
