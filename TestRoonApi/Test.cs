@@ -12,26 +12,26 @@ namespace TestRoonApi
 {
     public partial class Test : Form
     {
-        LoggerFactory _loggerFactory;
-        string _selectedZoneId;
-        string _selectedOutputId;
-        RoonApi _api;
-        RoonApiTransport _apiTransport;
-        RoonApiBrowse _apiBrowse;
-        RoonApiImage _apiImage;
-        RoonApiControlVolume _apiControlVolume;
-        RoonApiControlSource _apiControlSource;
-        RoonApiStatus _apiStatus;
-        RoonApiSettings _apiSettings;
-        string _lastImageKey;
-        Stack<string> _itemStack;
-        bool _setZoneSettings;
-        bool _setOutputVolume;
-        Discovery.Result _core;
-        RoonApi.RoonRegister _roonRegister;
-        List<RoonApiBrowse.LoadItem> _items;
-        List<RoonApiSettings.LayoutBase> _layout;
-        Dictionary<string, string> _values;
+        LoggerFactory                       _loggerFactory;
+        string                              _selectedZoneId;
+        string                              _selectedOutputId;
+        RoonApi                             _api;
+        RoonApiTransport                    _apiTransport;
+        RoonApiBrowse                       _apiBrowse;
+        RoonApiImage                        _apiImage;
+        RoonApiControlVolume                _apiControlVolume;
+        RoonApiControlSource                _apiControlSource;
+        RoonApiStatus                       _apiStatus;
+        RoonApiSettings                     _apiSettings;
+        string                              _lastImageKey;
+        Stack<string>                       _itemStack;
+        bool                                _setZoneSettings;
+        bool                                _setOutputVolume;
+        Discovery.Result                    _core;
+        RoonApi.RoonRegister                _roonRegister;
+        List<RoonApiBrowse.LoadItem>        _items;
+        List<RoonApiSettings.LayoutBase>    _layout;
+        Dictionary<string, string>          _values;
         public Test()
         {
             InitializeComponent();

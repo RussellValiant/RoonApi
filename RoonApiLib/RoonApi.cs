@@ -160,6 +160,10 @@ namespace RoonApiLib
             _onUnPaired = onUnPaired;
             _logger = logger == null ? NullLogger.Instance : logger;
             _requestId = 0;
+            if (!configPath.EndsWith("\\"))
+            {
+                configPath += "\\";
+            }
             _configPath = configPath;
             _coreId = null;
             _requests = new Dictionary<int, RoonRequest>();
@@ -660,7 +664,7 @@ namespace RoonApiLib
             {
                 string str = JsonConvert.SerializeObject(_configuration);
                 _logger.LogTrace($"SaveConfiguration : {str}");
-                File.WriteAllText(_configPath + "configuration.json", str);
+                File.WriteAllText(_configPath + "Configuration.json", str);
             }
         }
     }
