@@ -1,7 +1,8 @@
 # RoonApi
 C# Roon API
 
-The RoonTestApi sample shows usage of the imlemented RoonApi interfaces and also shows how to implemement source and volume control.
+TestRoonApi sample shows usage of the imlemented RoonApi interfaces and also shows how to implemement source and volume control.
+TestRoonApiUWP shows startup and initialisation in an UWP app. 
 
 RoonControlAdaptorUnDok.cs implements a real world source and volume controller for UnDok (Frontier Silicon) devices.   
 
