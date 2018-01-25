@@ -12,7 +12,7 @@ namespace TestRoonApi.Properties {
     
     
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
-    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("Microsoft.VisualStudio.Editors.SettingsDesigner.SettingsSingleFileGenerator", "15.3.0.0")]
+    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("Microsoft.VisualStudio.Editors.SettingsDesigner.SettingsSingleFileGenerator", "15.5.0.0")]
     internal sealed partial class Settings : global::System.Configuration.ApplicationSettingsBase {
         
         private static Settings defaultInstance = ((Settings)(global::System.Configuration.ApplicationSettingsBase.Synchronized(new Settings())));
@@ -25,7 +25,7 @@ namespace TestRoonApi.Properties {
         
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("<enter Roon core name>")]
+        [global::System.Configuration.DefaultSettingValueAttribute("RICSRV")]
         public string RoonCoreName {
             get {
                 return ((string)(this["RoonCoreName"]));
@@ -56,6 +56,18 @@ namespace TestRoonApi.Properties {
             }
             set {
                 this["LogLevel"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("192.168.1.130")]
+        public string MyIPAddress {
+            get {
+                return ((string)(this["MyIPAddress"]));
+            }
+            set {
+                this["MyIPAddress"] = value;
             }
         }
     }

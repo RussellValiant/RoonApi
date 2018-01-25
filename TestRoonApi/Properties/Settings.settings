@@ -3,7 +3,7 @@
   <Profiles />
   <Settings>
     <Setting Name="RoonCoreName" Type="System.String" Scope="User">
-      <Value Profile="(Default)">&lt;enter Roon core name&gt;</Value>
+      <Value Profile="(Default)">RICSRV</Value>
     </Setting>
     <Setting Name="PersistDirectory" Type="System.String" Scope="User">
       <Value Profile="(Default)">C:\Temp\</Value>
@@ -11,6 +11,9 @@
     <Setting Name="LogLevel" Type="System.String" Scope="User">
       <Value Profile="(Default)">Trace
 </Value>
+    </Setting>
+    <Setting Name="MyIPAddress" Type="System.String" Scope="User">
+      <Value Profile="(Default)">192.168.1.130</Value>
     </Setting>
   </Settings>
 </SettingsFile>

@@ -124,10 +124,9 @@ namespace TestRoonApi
             };
 
             // Init UI
+            textIpAddress.Text = Properties.Settings.Default.MyIPAddress;
             textRoonCoreName.Text = Properties.Settings.Default.RoonCoreName;
-            textRoonCoreName.TextChanged += (s, e) => Properties.Settings.Default.RoonCoreName = textRoonCoreName.Text;
             textPersistenceDirectory.Text = Properties.Settings.Default.PersistDirectory;
-            textPersistenceDirectory.TextChanged += (s, e) => Properties.Settings.Default.PersistDirectory = textPersistenceDirectory.Text;
             comboLogLevel.Items.AddRange(Enum.GetNames(typeof(LogLevel)));
             comboLogLevel.SelectedItem = Properties.Settings.Default.LogLevel;
             comboLogLevel.SelectedValueChanged += (s, e) => Properties.Settings.Default.LogLevel = comboLogLevel.SelectedItem.ToString();
