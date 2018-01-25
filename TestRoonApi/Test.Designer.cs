@@ -95,6 +95,7 @@
             // 
             // textRoonCoreName
             // 
+            this.textRoonCoreName.Enabled = false;
             this.textRoonCoreName.Location = new System.Drawing.Point(260, 31);
             this.textRoonCoreName.Name = "textRoonCoreName";
             this.textRoonCoreName.Size = new System.Drawing.Size(304, 31);
@@ -155,6 +156,7 @@
             // 
             // textPersistenceDirectory
             // 
+            this.textPersistenceDirectory.Enabled = false;
             this.textPersistenceDirectory.Location = new System.Drawing.Point(260, 85);
             this.textPersistenceDirectory.Name = "textPersistenceDirectory";
             this.textPersistenceDirectory.Size = new System.Drawing.Size(304, 31);
@@ -459,11 +461,11 @@
             // 
             // textIpAddress
             // 
+            this.textIpAddress.Enabled = false;
             this.textIpAddress.Location = new System.Drawing.Point(260, 135);
             this.textIpAddress.Name = "textIpAddress";
             this.textIpAddress.Size = new System.Drawing.Size(304, 31);
             this.textIpAddress.TabIndex = 43;
-            this.textIpAddress.Text = "192.168.1.130";
             // 
             // label6
             // 
