@@ -40,7 +40,8 @@ namespace RoonApiLib
             absolute = 0,
             relative
         }
-        public enum ESourceControlStatus {
+        public enum ESourceControlStatus
+        {
             indeterminate = 0,
             selected, deselected, standby
         }
@@ -51,6 +52,8 @@ namespace RoonApiLib
                 Type = src.Type;
                 Min = src.Min;
                 Max = src.Max;
+                HardLimitMin = src.HardLimitMin;
+                HardLimitMax = src.HardLimitMax;
                 Value = src.Value;
                 Step = src.Step;
                 IsMuted = src.IsMuted;
@@ -61,6 +64,10 @@ namespace RoonApiLib
             public int Min { get; set; }
             [JsonProperty("max")]
             public int Max { get; set; }
+            [JsonProperty("hard_limit_min")]
+            public int HardLimitMin { get; set; }
+            [JsonProperty("hard_limit_max")]
+            public int HardLimitMax { get; set; }
             [JsonProperty("value")]
             public int Value { get; set; }
             [JsonProperty("step")]
@@ -133,6 +140,7 @@ namespace RoonApiLib
                     ThreeLine.Copy(src.ThreeLine);
 
                 ImageKey = src.ImageKey;
+                ArtistImageKeys = src.ArtistImageKeys;
             }
             [JsonProperty("seek_position")]
             public int? SeekPosition { get; set; }
@@ -146,22 +154,27 @@ namespace RoonApiLib
             public LineThree ThreeLine { get; set; }
             [JsonProperty("image_key")]
             public string ImageKey { get; set; }
+            [JsonProperty("artist_image_keys")]
+            public string[] ArtistImageKeys { get; set; }
         }
         public class SourceControl
         {
             internal void Copy(SourceControl src)
             {
+                ControlKey = src.ControlKey;
                 DisplayName = src.DisplayName;
                 Status = src.Status;
                 SupportsStandby = src.SupportsStandby;
             }
+            [JsonProperty("control_key")]
+            public int ControlKey { get; set; }
             [JsonProperty("display_name")]
             public string DisplayName { get; set; }
             [JsonConverter(typeof(StringEnumConverter))]
             [JsonProperty("status")]
             public ESourceControlStatus Status { get; set; }
             [JsonProperty("supports_standby")]
-            public string SupportsStandby { get; set; }
+            public bool SupportsStandby { get; set; }
         }
         public class Output
         {
@@ -221,6 +234,8 @@ namespace RoonApiLib
                 IsPauseAllowed = src.IsPauseAllowed;
                 IsPlayAllowed = src.IsPlayAllowed;
                 IsSeekAllowed = src.IsSeekAllowed;
+                QueueItemsRemaining = src.QueueItemsRemaining;
+                QueueTimeRemaining = src.QueueTimeRemaining;
                 if (Settings == null || src.Settings == null)
                     Settings = src.Settings;
                 else
@@ -251,6 +266,10 @@ namespace RoonApiLib
             public bool IsPlayAllowed { get; set; }
             [JsonProperty("is_seek_allowed")]
             public bool IsSeekAllowed { get; set; }
+            [JsonProperty("queue_items_remaining")]
+            public int QueueItemsRemaining { get; set; }
+            [JsonProperty("queue_time_remaining")]
+            public int QueueTimeRemaining { get; set; }
             [JsonProperty("settings")]
             public Settings Settings { get; set; }
             [JsonProperty("now_playing")]
@@ -270,6 +289,22 @@ namespace RoonApiLib
             }
 
         }
+        public class ZoneSeek
+        {
+            internal void Copy(ZoneSeek src)
+            {
+                ZoneId = src.ZoneId;
+                QueueTimeRemaining = src.QueueTimeRemaining;
+                SeekPosition = src.SeekPosition;
+            }
+
+            [JsonProperty("zone_id")]
+            public string ZoneId { get; set; }
+            [JsonProperty("queue_time_remaining")]
+            public int QueueTimeRemaining { get; set; }
+            [JsonProperty("seek_position")]
+            public int? SeekPosition { get; set; }
+        }
         public class AllZones
         {
             [JsonProperty("zones")]
@@ -279,10 +314,45 @@ namespace RoonApiLib
         {
             [JsonProperty("zones_changed")]
             public Zone[] ZonesChanged { get; set; }
+            [JsonProperty("zones_seek_changed")]
+            public ZoneSeek[] ZonesSeekChanged { get; set; }
             [JsonProperty("zones_added")]
             public Zone[] ZonesAdded { get; set; }
             [JsonProperty("zones_removed")]
             public string[] ZonesRemoved { get; set; }
+        }
+        public class ChangedQueue
+        {
+            [JsonProperty("items")]
+            public QueueItem[] Items { get; set; }
+            [JsonProperty("changes")]
+            public QueueChange[] Changes { get; set; }
+        }
+        public partial class QueueChange
+        {
+            [JsonProperty("operation")]
+            public string Operation { get; set; }
+            [JsonProperty("index")]
+            public int Index { get; set; }
+            [JsonProperty("count", NullValueHandling = NullValueHandling.Ignore)]
+            public int? Count { get; set; }
+            [JsonProperty("items", NullValueHandling = NullValueHandling.Ignore)]
+            public QueueItem[] Items { get; set; }
+        }
+        public class QueueItem
+        {
+            [JsonProperty("queue_item_id")]
+            public int QueueItemId { get; set; }
+            [JsonProperty("length")]
+            public int Length { get; set; }
+            [JsonProperty("image_key")]
+            public string ImageKey { get; set; }
+            [JsonProperty("one_line")]
+            public LineOne OneLine { get; set; }
+            [JsonProperty("two_line")]
+            public LineTwo TwoLine { get; set; }
+            [JsonProperty("three_line")]
+            public LineThree ThreeLine { get; set; }
         }
         public class RoonControl
         {
@@ -325,10 +395,44 @@ namespace RoonApiLib
             [JsonConverter(typeof(StringEnumConverter))]
             public EMute How { get; set; }
         }
+        public class RoonSourceControl
+        {
+            [JsonProperty("output_id")]
+            public string OutputId { get; set; }
+            [JsonProperty("control_key")]
+            public int ControlKey { get; set; }
+        }
+        public class RoonQueue
+        {
+            [JsonProperty("zone_or_output_id")]
+            public string ZoneOrOutputId { get; set; }
+            [JsonProperty("max_item_count")]
+            public int MaxItemCount { get; set; }
+            [JsonProperty("subscription_key")]
+            public int? SubscriptionKey { get; set; }
+        }
+        public class RoonPlayFromHere
+        {
+            [JsonProperty("zone_or_output_id")]
+            public string ZoneOrOutputId { get; set; }
+            [JsonProperty("queue_item_id")]
+            public int QueueItemId { get; set; }
 
-        RoonApi                         _api;
-        Func<ChangedZoones, Task>    _onChangedZones;
-        Dictionary<string, Zone>    _zones;
+        }
+        public class RoonUnSubscribe
+        {
+            [JsonProperty("subscription_key")]
+            public int? SubscriptionKey { get; set; }
+        }
+
+        RoonApi _api;
+        Func<ChangedZoones, Task> _onChangedZones;
+        Func<ChangedQueue, Task> _onChangedQueue;
+
+        Dictionary<string, Zone> _zones;
+        Dictionary<string, ZoneSeek> _zonesSeek;
+
+        List<ChangedQueue> _zoneQueue;
 
         public RoonApiTransport(RoonApi api)
         {
@@ -338,15 +442,40 @@ namespace RoonApiLib
         {
             get => _zones;
         }
+        public Dictionary<string, ZoneSeek> ZonesSeek
+        {
+            get => _zonesSeek;
+        }
         public async Task<bool> SubscribeZones(int subscriptionKey, Func<ChangedZoones, Task> onChangedZones)
         {
             _onChangedZones = onChangedZones;
             _zones = new Dictionary<string, Zone>();
+            _zonesSeek = new Dictionary<string, ZoneSeek>();
             int requestId = await _api.SendSubscription(RoonApi.ServiceTransport + "/subscribe_zones", subscriptionKey);
             if (requestId < 0)
                 return false;
             _api.AddSubscription(requestId, OnReceived);
             return true;
+        }
+        public async Task<bool> SubscribeQueue(string outputOrZoneId, int maxItemCount, int? subscriptionKey, Func<ChangedQueue, Task> onChangedQueue)
+        {
+            _onChangedQueue = onChangedQueue;
+            var queue = new RoonQueue { ZoneOrOutputId = outputOrZoneId, MaxItemCount = maxItemCount, SubscriptionKey = subscriptionKey };
+            int requestId = await _api.SendQueueSubscription<RoonQueue>(RoonApi.ServiceTransport + "/subscribe_queue", queue, 1);
+            if (requestId < 0)
+                return false;
+            
+            _api.AddSubscription(requestId, OnQueueReceived);
+            return true;
+        }
+        public async Task<bool> UnSubscribe(string reqName, int? subscriptionKey)
+        {
+            return await UnSubscribe(reqName , new RoonUnSubscribe { SubscriptionKey = subscriptionKey });
+        }
+        public async Task<bool> UnSubscribe(string reqName, RoonUnSubscribe unSubscribe)
+        {
+            var result = await _api.SendReceive<bool, RoonUnSubscribe>(RoonApi.ServiceTransport + "/unsubscribe_" + reqName, unSubscribe);
+            return result;
         }
         public async Task<bool> Control(string outputOrZoneId, EControl control)
         {
@@ -366,7 +495,10 @@ namespace RoonApiLib
         {
             RoonChangeSettings changeSettings = new RoonChangeSettings
             {
-                ZoneOrOutputId = zoneOrOutputId, Shuffle = shuffle, AutoRadio = autoRadio, Loop = loop
+                ZoneOrOutputId = zoneOrOutputId,
+                Shuffle = shuffle,
+                AutoRadio = autoRadio,
+                Loop = loop
             };
             return await ChangeSettings(changeSettings);
         }
@@ -400,7 +532,42 @@ namespace RoonApiLib
             var result = await _api.SendReceive<bool, RoonSeek>(RoonApi.ServiceTransport + "/seek", seek);
             return result;
         }
-        async Task<bool> OnReceived (string information, int requestId, string body)
+        public async Task<bool> Seek(string outputId, ESeek how, int seconds)
+        {
+            RoonSeek seekControl = new RoonSeek { ZoneOrOutputId = outputId, How = how, Seconds = seconds };
+            return await Seek(seekControl);
+        }
+        public async Task<bool> Standby(RoonSourceControl sourceControl)
+        {
+            var result = await _api.SendReceive<bool, RoonSourceControl>(RoonApi.ServiceTransport + "/standby", sourceControl);
+            return result;
+        }
+        public async Task<bool> Standby(string outputId, int controlKey)
+        {
+            RoonSourceControl sourceControl = new RoonSourceControl { OutputId = outputId, ControlKey = controlKey };
+            return await Standby(sourceControl);
+        }
+        public async Task<bool> ToggleStandby(RoonSourceControl sourceControl)
+        {
+            var result = await _api.SendReceive<bool, RoonSourceControl>(RoonApi.ServiceTransport + "/toggle_standby", sourceControl);
+            return result;
+        }
+        public async Task<bool> ToggleStandby(string outputId, int controlKey)
+        {
+            RoonSourceControl sourceControl = new RoonSourceControl { OutputId = outputId, ControlKey = controlKey };
+            return await ToggleStandby(sourceControl);
+        }
+        public async Task<bool> PlayFromHere(RoonPlayFromHere playFromHere)
+        {
+            var result = await _api.SendReceive<bool, RoonPlayFromHere>(RoonApi.ServiceTransport + "/play_from_here", playFromHere);
+            return result;
+        }
+        public async Task<bool> PlayFromHere(string outputId, int queueItemId)
+        {
+            RoonPlayFromHere playFromHere = new RoonPlayFromHere { ZoneOrOutputId = outputId, QueueItemId = queueItemId };
+            return await PlayFromHere(playFromHere);
+        }
+        async Task<bool> OnReceived(string information, int requestId, string body)
         {
             AllZones zones;
             ChangedZoones changedZones;
@@ -408,16 +575,41 @@ namespace RoonApiLib
             {
                 case "Subscribed":
                     zones = JsonConvert.DeserializeObject<AllZones>(body);
-                    changedZones = new ChangedZoones { ZonesAdded = zones.Zones };
+                    changedZones = new ChangedZoones { ZonesChanged = zones.Zones };
                     if (_onChangedZones != null)
                         await _onChangedZones(changedZones);
                     OnReceivedZones(changedZones);
+                    break;
+                case "UnSubscribed":
                     break;
                 case "Changed":
                     changedZones = JsonConvert.DeserializeObject<ChangedZoones>(body);
                     if (_onChangedZones != null)
                         await _onChangedZones(changedZones);
                     OnReceivedZones(changedZones);
+                    break;
+            }
+            return true;
+        }
+        async Task<bool> OnQueueReceived(string information, int requestId, string body)
+        {
+            ChangedQueue changedQueue;
+            switch (information)
+            {
+                case "Subscribed":
+                    changedQueue = JsonConvert.DeserializeObject<ChangedQueue>(body);
+                    if (_onChangedQueue != null)
+                        await _onChangedQueue(changedQueue);
+                    OnReceivedQueue(changedQueue);
+                    break;
+                case "UnSubscribed":
+					break;
+                case "Changed":
+                    changedQueue = JsonConvert.DeserializeObject<ChangedQueue>(body);
+                    
+                    if (_onChangedQueue != null)
+                        await _onChangedQueue(changedQueue);
+                    OnReceivedQueue(changedQueue);
                     break;
             }
             return true;
@@ -445,13 +637,18 @@ namespace RoonApiLib
                     {
                         if (_zones.ContainsKey(removedZoneId))
                             _zones.Remove(removedZoneId);
+                        if (_zonesSeek.ContainsKey(removedZoneId))
+                            _zonesSeek.Remove(removedZoneId);
                     }
                 }
                 if (zones.ZonesAdded != null)
                 {
                     foreach (var zone in zones.ZonesAdded)
                     {
-                        if (!_zones.ContainsKey(zone.ZoneId))
+                        Zone destZone;
+                        if (_zones.TryGetValue(zone.ZoneId, out destZone))
+                            destZone.Copy(zone);
+                        else
                             _zones.Add(zone.ZoneId, zone);
                     }
                 }
@@ -466,8 +663,43 @@ namespace RoonApiLib
                             _zones.Add(zone.ZoneId, zone);
                     }
                 }
+                if (zones.ZonesSeekChanged != null)
+                {
+                    foreach (var zone in zones.ZonesSeekChanged)
+                    {
+                        Zone destZone;
+                        if (_zones.TryGetValue(zone.ZoneId, out destZone))
+                        {
+                            if (destZone.NowPlaying != null)
+                            {
+                                ZoneSeek destZoneSeek;
+                                if (_zonesSeek.TryGetValue(zone.ZoneId, out destZoneSeek))
+                                    destZoneSeek.Copy(zone);
+                                else
+                                    _zonesSeek.Add(zone.ZoneId, zone); ;
+                            }
+                        }
+                    }
+                }
             }
             OnPropertyChanged("Zones");
+        }
+        void OnReceivedQueue(ChangedQueue queue)
+        {
+            _zoneQueue = new List<ChangedQueue>();
+
+            lock (_zoneQueue)
+            {
+                if (queue.Items != null)
+                {
+                    _zoneQueue.Add(queue);
+                }
+                if (queue.Changes != null)
+                {
+                    _zoneQueue.Add(queue);
+                }
+            }
+
         }
     }
 }

@@ -14,16 +14,16 @@ namespace RoonApiLib
 {
     public class RoonApi : BindableBase
     {
-        public const string ServiceRegistry     = "com.roonlabs.registry:1";
-        public const string ServiceTransport    = "com.roonlabs.transport:1";
-        public const string ServiceStatus       = "com.roonlabs.status:1";
-        public const string ServicePairing      = "com.roonlabs.pairing:1";
-        public const string ServicePing         = "com.roonlabs.ping:1";
-        public const string ServiceImage        = "com.roonlabs.image:1";
-        public const string ServiceBrowse       = "com.roonlabs.browse:1";
-        public const string ServiceSettings     = "com.roonlabs.settings:1";
-        public const string ControlVolume       = "com.roonlabs.volumecontrol:1";
-        public const string ControlSource       = "com.roonlabs.sourcecontrol:1";
+        public const string ServiceRegistry = "com.roonlabs.registry:1";
+        public const string ServiceTransport = "com.roonlabs.transport:2";
+        public const string ServiceStatus = "com.roonlabs.status:1";
+        public const string ServicePairing = "com.roonlabs.pairing:1";
+        public const string ServicePing = "com.roonlabs.ping:1";
+        public const string ServiceImage = "com.roonlabs.image:1";
+        public const string ServiceBrowse = "com.roonlabs.browse:1";
+        public const string ServiceSettings = "com.roonlabs.settings:1";
+        public const string ControlVolume = "com.roonlabs.volumecontrol:1";
+        public const string ControlSource = "com.roonlabs.sourcecontrol:1";
 
         public const string MessageRequest      = "REQUEST";
         public const string MessageComplete     = "COMPLETE";
@@ -287,6 +287,14 @@ namespace RoonApiLib
             bool rc = await Send(command, requestId, bodyString);
             return rc ? requestId : -1;
 
+        }
+        internal async Task<int> SendQueueSubscription<REQUEST>(string command, REQUEST body, int subscriptionKey)
+        {
+            string bodyString = JsonConvert.SerializeObject(body, _jsonSettings);
+            int requestId = _requestId++;
+
+            bool rc = await Send(command, requestId, bodyString);
+            return rc ? requestId : -1;
         }
         internal async Task<RESULT> SendReceive<RESULT,REQUEST>(string command, REQUEST body)
         {
