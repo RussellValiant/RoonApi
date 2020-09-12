@@ -61,17 +61,17 @@ namespace RoonApiLib
             [JsonProperty("type")]
             public string Type { get; set; }
             [JsonProperty("min")]
-            public int Min { get; set; }
+            public double Min { get; set; }
             [JsonProperty("max")]
-            public int Max { get; set; }
+            public double Max { get; set; }
             [JsonProperty("hard_limit_min")]
-            public int HardLimitMin { get; set; }
+            public double HardLimitMin { get; set; }
             [JsonProperty("hard_limit_max")]
-            public int HardLimitMax { get; set; }
+            public double HardLimitMax { get; set; }
             [JsonProperty("value")]
-            public int Value { get; set; }
+            public double Value { get; set; }
             [JsonProperty("step")]
-            public int Step { get; set; }
+            public double Step { get; set; }
             [JsonProperty("is_muted")]
             public bool IsMuted { get; set; }
         }
@@ -145,7 +145,7 @@ namespace RoonApiLib
             [JsonProperty("seek_position")]
             public int? SeekPosition { get; set; }
             [JsonProperty("length")]
-            public int Length { get; set; }
+            public int? Length { get; set; }
             [JsonProperty("one_line")]
             public LineOne OneLine { get; set; }
             [JsonProperty("two_line")]
@@ -267,9 +267,9 @@ namespace RoonApiLib
             [JsonProperty("is_seek_allowed")]
             public bool IsSeekAllowed { get; set; }
             [JsonProperty("queue_items_remaining")]
-            public int QueueItemsRemaining { get; set; }
+            public int? QueueItemsRemaining { get; set; }
             [JsonProperty("queue_time_remaining")]
-            public int QueueTimeRemaining { get; set; }
+            public int? QueueTimeRemaining { get; set; }
             [JsonProperty("settings")]
             public Settings Settings { get; set; }
             [JsonProperty("now_playing")]
@@ -301,7 +301,7 @@ namespace RoonApiLib
             [JsonProperty("zone_id")]
             public string ZoneId { get; set; }
             [JsonProperty("queue_time_remaining")]
-            public int QueueTimeRemaining { get; set; }
+            public int? QueueTimeRemaining { get; set; }
             [JsonProperty("seek_position")]
             public int? SeekPosition { get; set; }
         }
@@ -385,7 +385,7 @@ namespace RoonApiLib
             [JsonConverter(typeof(StringEnumConverter))]
             public EVolumeMode How { get; set; }
             [JsonProperty("value")]
-            public int Value { get; set; }
+            public double Value { get; set; }
         }
         public class RoonMute
         {
@@ -507,7 +507,7 @@ namespace RoonApiLib
             var result = await _api.SendReceive<bool, RoonChangeVolume>(RoonApi.ServiceTransport + "/change_volume", changeVolume);
             return result;
         }
-        public async Task<bool> ChangeVolume(string outputId, EVolumeMode mode, int value)
+        public async Task<bool> ChangeVolume(string outputId, EVolumeMode mode, double value)
         {
             RoonChangeVolume changeVolume = new RoonChangeVolume { OutputId = outputId, How = mode, Value = value };
             return await ChangeVolume(changeVolume);
