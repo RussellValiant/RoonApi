@@ -405,25 +405,32 @@ namespace RoonApiLib
                 int copiedLength = 0;
                 int dataLength = byteCount - index;
                 byte[] buffer = new byte[content.ContentLength];
-                Array.Copy(data, index, buffer, copiedLength, dataLength);
-                copiedLength += dataLength;
-                while (copiedLength < content.ContentLength)
+
+                if (dataLength >= 0)
                 {
-                    ArraySegment<byte> dataRecv = new ArraySegment<byte>(data);
-                    var result = await _webSocket.ReceiveAsync(dataRecv, _cancellationTokenSource.Token);
-                    Array.Copy(data, 0, buffer, copiedLength, result.Count);
-                    copiedLength += result.Count;
-                }
-                content.Data = buffer;
-                if (headerDict.TryGetValue("Content-Type", out content.ContentType) && content.ContentType.StartsWith ("image"))
-                {
-                    _logger.LogTrace($"{content.MessageType} {content.Information} : image[{content.ContentLength}]");
-                }
-                else
-                {
-                    content.Body = Encoding.UTF8.GetString(buffer);
-                    _logger.LogTrace($"{content.MessageType} {content.Information} [{content.ContentLength}]: {content.Body}");
-                }
+                    Array.Copy(data, index, buffer, copiedLength, dataLength);
+                    copiedLength += dataLength;
+                    while (copiedLength < content.ContentLength)
+                    {
+                        ArraySegment<byte> dataRecv = new ArraySegment<byte>(data);
+                        var result = await _webSocket.ReceiveAsync(dataRecv, _cancellationTokenSource.Token);
+                        if (result.Count >= 0)
+                        {
+                            Array.Copy(data, 0, buffer, copiedLength, result.Count);
+                            copiedLength += result.Count;
+                        }
+                    }
+                    content.Data = buffer;
+                    if (headerDict.TryGetValue("Content-Type", out content.ContentType) && content.ContentType.StartsWith("image"))
+                    {
+                        _logger.LogTrace($"{content.MessageType} {content.Information} : image[{content.ContentLength}]");
+                    }
+                    else
+                    {
+                        content.Body = Encoding.UTF8.GetString(buffer);
+                        _logger.LogTrace($"{content.MessageType} {content.Information} [{content.ContentLength}]: {content.Body}");
+                    }
+                }               
             }
             else
             {
@@ -544,7 +551,7 @@ namespace RoonApiLib
                                 if (request.OnReceived != null)
                                 {
                                     _requests.Remove(requestId);
-                                    await request.OnReceived(content.Information, requestId, content.Body);
+                                    if (content.Body != null) await request.OnReceived(content.Information, requestId, content.Body);   
                                 }
                                 else
                                 {
@@ -560,7 +567,7 @@ namespace RoonApiLib
                             OnRoonReceived onContinueReceived;
                             if (_subscriptions.TryGetValue(requestId, out onContinueReceived))
                             {
-                                rc = await onContinueReceived(content.Information, requestId, content.Body);
+                                if (content.Body != null) rc = await onContinueReceived(content.Information, requestId, content.Body);
                                 break;
                             }
                             else
